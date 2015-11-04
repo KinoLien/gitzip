@@ -1,1 +1,357 @@
-My Page Test
+<!DOCTYPE html>
+<html>
+  <head>
+  	<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
+  	<link rel="stylesheet" type="text/css" href="css/bootstrap.css" />
+  	<script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
+  	<script type="text/javascript" src="js/bootstrap.js"></script>
+  	<style type="text/css">
+  		@media (min-width: 768px) {
+  			.navbar-form .form-control{
+  				width: 320px;
+  			}
+  			.table-path{
+  				font-size: 16px;
+    			margin: 6px 0;
+  			}
+  			.table-path > .glyphicon{
+  				margin-right: 5px;
+  			}
+  		}
+  		/*.loading{
+  			height: 100%;
+  		}
+*/
+		.container-scroll{
+			overflow:auto;
+		}
+  		.glyphicon-refresh-animate {
+		    -animation: spin .7s infinite linear;
+		    -webkit-animation: spin2 .7s infinite linear;
+		}
+
+		@-webkit-keyframes spin2 {
+		    from { -webkit-transform: rotate(0deg);}
+		    to { -webkit-transform: rotate(360deg);}
+		}
+
+		@keyframes spin {
+		    from { transform: scale(1) rotate(0deg);}
+		    to { transform: scale(1) rotate(360deg);}
+		}
+  	</style>
+  </head>
+  <body>
+  	<nav class="navbar navbar-default">
+	  <div class="container-fluid">
+	    <!-- Brand and toggle get grouped for better mobile display -->
+	    <div class="navbar-header">
+	      <!-- <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+	        <span class="sr-only">Toggle navigation</span>
+	        <span class="icon-bar"></span>
+	        <span class="icon-bar"></span>
+	        <span class="icon-bar"></span>
+	      </button> -->
+	      <a class="navbar-brand">GitZip</a>
+	    </div>
+
+	    <!-- Collect the nav links, forms, and other content for toggling -->
+	    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	      <ul class="nav navbar-nav">
+	      	<!-- <li>
+		      	<a href="https://github.com/KinoLien/gitzip/tree/gh-pages" target="_blank" style="padding:9px 15px 9px 0px;">
+		        	<img src="images/GitHub-Mark-32px.png">
+		      	</a>
+	      	</li> -->
+	        <!-- <li class="active"><a href="#">About <span class="sr-only">(current)</span></a></li> -->
+	        <!-- <li><a href="#">About</a></li> -->
+	        <!-- <li class="dropdown">
+	          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
+	          <ul class="dropdown-menu">
+	            <li><a href="#">Action</a></li>
+	            <li><a href="#">Another action</a></li>
+	            <li><a href="#">Something else here</a></li>
+	            <li role="separator" class="divider"></li>
+	            <li><a href="#">Separated link</a></li>
+	            <li role="separator" class="divider"></li>
+	            <li><a href="#">One more separated link</a></li>
+	          </ul>
+	        </li> -->
+	      </ul>
+
+	      <form class="navbar-form navbar-right" role="search" id="urlForm">
+	        <div class="form-group">
+	          <input id="urlInput" type="text" class="form-control" placeholder="GitHub repo root URL or sub-folder URL">
+	        </div>
+	        <button id="urlSearch" type="button" class="btn btn-default">
+	        	<!-- <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Zip and Download -->
+	        	<span class="glyphicon glyphicon-search" aria-hidden="true"></span> Search
+	        </button>
+	      </form>
+	      <p class="navbar-text navbar-right">Input here 
+	      	<span class="glyphicon glyphicon-arrow-right" aria-hidden="true"></span>
+	      </p>
+	      <!-- <ul class="nav navbar-nav navbar-right">
+	        <li><a href="#">Link</a></li>
+	        <li class="dropdown">
+	          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
+	          <ul class="dropdown-menu">
+	            <li><a href="#">Action</a></li>
+	            <li><a href="#">Another action</a></li>
+	            <li><a href="#">Something else here</a></li>
+	            <li role="separator" class="divider"></li>
+	            <li><a href="#">Separated link</a></li>
+	          </ul>
+	        </li>
+	      </ul> -->
+	    </div><!-- /.navbar-collapse -->
+	  </div><!-- /.container-fluid -->
+	</nav>
+
+	<div id="pathContainer" class="container" style="display:none;">
+		<p class="lead">Path: <span id="pathLead"></span></p>
+	</div>
+
+	<div id="scroller" class="container container-scroll">
+		<table class="table table-hover">
+			<colgroup>
+	            <col class="col-md-7">
+	            <col class="col-md-4">
+	        </colgroup>
+			<!-- <thead>
+				<tr>
+					<th>&nbsp;</th>
+					<th>Path</th>
+					<th>33</th>
+				</tr>
+			</thead> -->
+  			<tbody id="results">
+  				<!-- <tr>
+  					<td>
+  						<div class="table-path">
+						<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>
+						???
+  						</div>
+  					</td>
+  					<td>
+  						<button type="button" class="btn btn-default">
+				        	<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Zip It
+				        </button>
+  					</td>
+  				</tr>
+  				<tr>
+  					<td>
+  						<span class="glyphicon glyphicon-file" aria-hidden="true"></span>
+  						???
+  					</td>
+  					<td>
+  						<span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>
+  						33
+  					</td>
+  				</tr> -->
+  			</tbody>
+		</table>
+		
+		<div id="logRegion"></div>
+	</div>
+
+	<!-- <div class="loading">
+		<p class="lead">
+			<span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>
+			Loading...
+		</p>
+	</div> -->
+	<script type="text/javascript">
+		var repoExp = new RegExp("^https://github.com/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?");
+
+		// git_url || url
+		// https://api.github.com/repos/fatcloud/PyCV-time/git/trees/6087888badef7374fd773d6b55739bd4d4e3922a"
+		// https://api.github.com/repos/fatcloud/PyCV-time/git/blobs/4f21b1fc02f3a1dce86813c335ed9cf9298eb19d
+
+		var zipItButtonClick = function(o){alert(o.value);};
+
+		var filetrees = [];
+		var contentUrlCollection = [];
+		var processLocked = false;
+
+		var changeDirectoryClick = function(o){
+			var url = o.getAttribute('value');
+			if(url){ renderCells(url); }
+		};
+
+		var _onWindowResize = function(){
+			var scroll = document.getElementById('scroller');
+			if(scroll) $(scroll).height($(window).height() - scroll.offsetTop);
+		};
+
+		var generatePathLinks = function(resolved){
+			var res = [];
+			var pathSplit = (resolved.path || "").split('/');
+			var showName = "";
+			var outputText = [];
+			var baseUrl = resolved.rootUrl;
+			outputText.push('<a href="#" onclick="changeDirectoryClick(this);" value="'+ baseUrl + '">[root]</a>');
+			while(showName = pathSplit.shift()){
+				res.push(showName);
+				outputText.push('<a href="#" onclick="changeDirectoryClick(this);" value="'+ 
+					[baseUrl, res.join("/")].join("/") + '">'+ showName +'</a>');
+			}
+
+			$('#pathLead').html(outputText.join('/'));
+			return res;
+		};
+
+		var zipIt = function(resolved){
+			if(!resolved.path){
+				// root
+			}else if(resolved.type == "tree"){
+				// folder
+
+				// https://api.github.com/repos/fatcloud/PyCV-time/contents/members
+				putLogs("Collect content urls of files recursively.");
+				(new Promise(function(resolve, reject) {
+			      	$.ajax({
+					    url: "https://api.github.com/repos/"+ resolved.author + 
+					    	"/" + resolved.project + "/contents/" + resolved.path + 
+					    	"?ref=" + resolved.branch || 'master',
+					    success: function(results) {
+					    	var treeCount = 1;
+					        for(var i = 0, len = results.length; i < len; i++){
+					            var item = results[i];
+					            if(results[i].type == "dir"){
+					                filetrees.push({
+					                	url: item.git_url,
+					                	path: item.path
+					                });
+					            }else{
+					            	putLogs(item.path + " collected");
+					            	contentUrlCollection.push({
+					            		path: item.path,
+					            		url: item.git_url
+					            	});
+					            }
+					        }
+					        resolve(filetrees);
+					    },
+					    error:function(results){
+					    	reject(results);
+					    }
+					});
+			    })).then(function(res){
+				    var promises = [];
+					for(var i = 0, len = res.length; i < len; i++){
+				        promises.push(Promise.resolve(
+				        	$.ajax({
+								url: res[i].url + "?recursive=1",
+								success: (function(parentPath){
+									return function(results){
+										results.tree.forEach(function(item){
+											var path = parentPath + "/" + item.path;
+											putLogs(path + " collected");
+											contentUrlCollection.push({
+												path: path,
+												url: item.url
+											});
+										});
+									};
+								})(res[i].path)
+							})	
+				        ));
+					}
+					Promise.all(promises).then(function() {
+				    	putLogs(JSON.stringify(contentUrlCollection));
+				    }, function(error){
+				    	putLogs(error);	
+				    });
+				}, function(error){
+					putLogs(error);
+				});
+
+			}else{
+				// blob
+			}
+		};
+
+		var resolveUrl = function(repoUrl){
+			if(typeof repoUrl != 'string') return;
+			var matches = repoUrl.match(repoExp);
+			if(matches && matches.length > 0){
+				return {
+					author: matches[1],
+					project: matches[2],
+					branch: matches[5],
+					type: matches[4],
+					path: matches[7],
+					inputUrl: repoUrl,
+					rootUrl: "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + (matches[5] || 'master')
+				};
+			}
+		};
+
+		var putLogs = function(msg){
+			// console.log(msg);
+			$("#logRegion").append("<p>" + msg + "</p>");
+		};
+
+		var renderCells = function(repoUrl){
+
+			// https://github.com/motephyr/font_20140714
+			// https://api.github.com/repos/fatcloud/PyCV-time/contents/
+			var resolved = resolveUrl(repoUrl);
+			generatePathLinks(resolved);
+			$('#pathContainer').show();
+			_onWindowResize();
+			$.ajax({
+			    url: "https://api.github.com/repos/"+ resolved.author + 
+			    	"/" + resolved.project + "/contents/" + (resolved.path || "") + 
+			    	"?ref=" + (resolved.branch || 'master'),
+			    success: function(results) {
+			    	var templateText = '';
+			        for(var i = 0, len = results.length; i < len; i++){
+			            var item = results[i],
+			            	valueText = item.path,
+			            	pathText = valueText.split('/').pop(),
+			            	urlText = item.git_url,
+			            	onclickHTML = "",
+			            	icon, downText;
+			            if(item.type == "dir"){
+							icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
+							downText = "Zip it and Download";
+							onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
+								resolved.rootUrl + "/" + valueText + '">' + pathText + '</a>';
+			            }else{
+							icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
+							downText = "Get File";
+							onclickHTML = pathText;
+			            }
+			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
+		  					'<td><button type="button" class="btn btn-default" value="'+ 
+		  						urlText +'" onclick="zipItButtonClick(this);">' + 
+								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
+								+ downText + '</button></td></tr>';
+			        }
+			        $('#results').html(templateText);
+			    },
+			    error:function(results){
+			    	putLogs(results);
+			    }
+			});
+		};
+
+		$(window).load(function(){
+			var submitHandler = function(e){
+				e.preventDefault();
+				// if(processLocked == false){
+				// 	processLocked = true;
+				// 	zipIt(resolveUrl($("#urlInput").val()));
+				// }
+				renderCells($("#urlInput").val());
+			};
+			$(window).on('resize', _onWindowResize);
+			$("#urlForm").on('submit', submitHandler);
+			$("#urlSearch").on('click', submitHandler);
+		});
+
+	</script>
+  </body>
+</html>
