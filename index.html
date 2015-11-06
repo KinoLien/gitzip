@@ -2,9 +2,11 @@
 <html>
   <head>
   	<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
-  	<link rel="stylesheet" type="text/css" href="css/bootstrap.css" />
+  	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css" />
   	<script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
-  	<script type="text/javascript" src="js/bootstrap.js"></script>
+  	<script type="text/javascript" src="js/bootstrap.min.js"></script>
+  	<script type="text/javascript" src="js/FileSaver.min.js"></script>
+  	<script type="text/javascript" src="js/jszip.min.js"></script>
   	<style type="text/css">
   		@media (min-width: 768px) {
   			.navbar-form .form-control{
@@ -88,7 +90,7 @@
 	        	<span class="glyphicon glyphicon-search" aria-hidden="true"></span> Search
 	        </button>
 	      </form>
-	      <p class="navbar-text navbar-right">Input here 
+	      <p class="navbar-text navbar-right text-uppercase">Input here 
 	      	<span class="glyphicon glyphicon-arrow-right" aria-hidden="true"></span>
 	      </p>
 	      <!-- <ul class="nav navbar-nav navbar-right">
@@ -167,8 +169,54 @@
 		// git_url || url
 		// https://api.github.com/repos/fatcloud/PyCV-time/git/trees/6087888badef7374fd773d6b55739bd4d4e3922a"
 		// https://api.github.com/repos/fatcloud/PyCV-time/git/blobs/4f21b1fc02f3a1dce86813c335ed9cf9298eb19d
+		var _isProcessing = false;
 
-		var zipItButtonClick = function(o){alert(o.value);};
+
+		var zipItButtonClick = function(o){
+			// o.getAttribute('git-url')
+			// o.getAttribute('git-name')
+			var zipName = o.getAttribute('git-name');
+			var url = o.getAttribute('git-url');
+			if(url && !_isProcessing){
+				$.ajax({
+					url: url + "?recursive=1",
+					success: function(results){
+						var promises = [];
+						var fileContents = [];
+						results.tree.forEach(function(item){
+							promises.push(Promise.resolve(
+					        	$.ajax({
+									url: item.url,
+									success: (function(path){
+										return function(results){
+											fileContents.push({path:path,content:results.content});
+										};
+									})(item.path)
+								})	
+					        ));
+						});
+						Promise.all(promises).then(function() {
+					    	var zip = new JSZip();
+					    	fileContents.forEach(function(item){
+					    		zip.file(item.path, item.content, {createFolders:true,base64:true});
+					    	});
+					    	saveAs(zip.generate({type:"blob"}), zipName + ".zip");
+					    });
+					}
+				})	
+			}
+		};
+		var getFileButtonClick = function(o){
+			// o.getAttribute('git-url')
+			// var baseUrl = "https://api.github.com/repos/fatcloud/PyCV-time/contents/";
+			var url = o.getAttribute('git-url');
+			if(url){
+				var down = document.createElement('a');
+				down.setAttribute('download', true);
+				down.href = url;
+				down.click();
+			}
+		};
 
 		var filetrees = [];
 		var contentUrlCollection = [];
@@ -279,9 +327,9 @@
 				return {
 					author: matches[1],
 					project: matches[2],
-					branch: matches[5],
+					branch: matches[5] || 'master',
 					type: matches[4],
-					path: matches[7],
+					path: matches[7] || '',
 					inputUrl: repoUrl,
 					rootUrl: "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + (matches[5] || 'master')
 				};
@@ -298,13 +346,15 @@
 			// https://github.com/motephyr/font_20140714
 			// https://api.github.com/repos/fatcloud/PyCV-time/contents/
 			var resolved = resolveUrl(repoUrl);
+			var contentBaseUrl = ["https://raw.githubusercontent.com", 
+				resolved.author, resolved.project, resolved.branch].join("/");
 			generatePathLinks(resolved);
 			$('#pathContainer').show();
 			_onWindowResize();
 			$.ajax({
 			    url: "https://api.github.com/repos/"+ resolved.author + 
-			    	"/" + resolved.project + "/contents/" + (resolved.path || "") + 
-			    	"?ref=" + (resolved.branch || 'master'),
+			    	"/" + resolved.project + "/contents/" + resolved.path + 
+			    	"?ref=" + resolved.branch,
 			    success: function(results) {
 			    	var templateText = '';
 			        for(var i = 0, len = results.length; i < len; i++){
@@ -313,20 +363,24 @@
 			            	pathText = valueText.split('/').pop(),
 			            	urlText = item.git_url,
 			            	onclickHTML = "",
-			            	icon, downText;
+			            	icon, downText, getMethod;
 			            if(item.type == "dir"){
 							icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
-							downText = "Zip it and Download";
+							downText = "Download Zip File";
+							getMethod = "zipItButtonClick";
 							onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
 								resolved.rootUrl + "/" + valueText + '">' + pathText + '</a>';
 			            }else{
 							icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
 							downText = "Get File";
+							getMethod = "getFileButtonClick";
 							onclickHTML = pathText;
+							urlText = contentBaseUrl + "/" + valueText;
 			            }
 			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
-		  					'<td><button type="button" class="btn btn-default" value="'+ 
-		  						urlText +'" onclick="zipItButtonClick(this);">' + 
+		  					'<td><button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
+		  						'git-url="' + urlText + '" onclick="'
+		  						+ getMethod + '(this);">' + 
 								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
 								+ downText + '</button></td></tr>';
 			        }
