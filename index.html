@@ -90,9 +90,9 @@
 	        	<span class="glyphicon glyphicon-search" aria-hidden="true"></span> Search
 	        </button>
 	      </form>
-	      <p class="navbar-text navbar-right text-uppercase">Input here 
+	      <!-- <p class="navbar-text navbar-right text-uppercase">Input here 
 	      	<span class="glyphicon glyphicon-arrow-right" aria-hidden="true"></span>
-	      </p>
+	      </p> -->
 	      <!-- <ul class="nav navbar-nav navbar-right">
 	        <li><a href="#">Link</a></li>
 	        <li class="dropdown">
@@ -117,8 +117,9 @@
 	<div id="scroller" class="container container-scroll">
 		<table class="table table-hover">
 			<colgroup>
-	            <col class="col-md-7">
+	            <col class="col-md-5">
 	            <col class="col-md-4">
+	            <col class="col-md-3">
 	        </colgroup>
 			<!-- <thead>
 				<tr>
@@ -342,14 +343,17 @@
 			if(typeof repoUrl != 'string') return;
 			var matches = repoUrl.match(repoExp);
 			if(matches && matches.length > 0){
+				var root = (matches[5])? 
+					"https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + matches[5] :
+					repoUrl;
 				return {
 					author: matches[1],
 					project: matches[2],
-					branch: matches[5] || 'master',
+					branch: matches[5],
 					type: matches[4],
 					path: matches[7] || '',
 					inputUrl: repoUrl,
-					rootUrl: "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + (matches[5] || 'master')
+					rootUrl: root
 				};
 			}
 		};
@@ -367,17 +371,17 @@
 			if(!resolved){
 				// invalid url
 			}
-			var contentBaseUrl = ["https://raw.githubusercontent.com", 
-				resolved.author, resolved.project, resolved.branch].join("/");
+			// var contentBaseUrl = ["https://raw.githubusercontent.com", 
+			// 	resolved.author, resolved.project, resolved.branch || ""].join("/");
 			$.ajax({
 			    url: "https://api.github.com/repos/"+ resolved.author + 
 			    	"/" + resolved.project + "/contents/" + resolved.path + 
-			    	"?ref=" + resolved.branch,
+			    	(resolved.branch? ("?ref=" + resolved.branch) : ""),
 			    success: function(results) {
 			    	var templateText = '';
 			    	if(!Array.isArray(results)){
 			    		if(results.message) alert("Error: " +  results.message); 
-			    		else getFileButtonClick({ 'git-url': contentBaseUrl + "/" + results.path});
+			    		else getFileButtonClick({ 'git-url': results.download_url});
 			    		return;
 			    	}
 			    	results.sort(function(a,b){
@@ -402,20 +406,21 @@
 							downText = "Download Zip File";
 							getMethod = "zipItButtonClick";
 							onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
-								resolved.rootUrl + "/" + valueText + '">' + pathText + '</a>';
+								item.html_url + '">' + pathText + '</a>';
+								// resolved.rootUrl + "/" + valueText
 			            }else{
 							icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
 							downText = "Get File";
 							getMethod = "getFileButtonClick";
 							onclickHTML = pathText;
-							urlText = contentBaseUrl + "/" + valueText;
+							urlText = item.download_url;
 			            }
 			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
 		  					'<td><button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
 		  						'git-url="' + urlText + '" onclick="'
 		  						+ getMethod + '(this);">' + 
 								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
-								+ downText + '</button></td></tr>';
+								+ downText + '</button></td><td></td></tr>';
 			        }
 			        $('#results').html(templateText);
 			        showResults(resolved);
