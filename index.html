@@ -83,7 +83,7 @@
 
 	      <form class="navbar-form navbar-right" role="search" id="urlForm">
 	        <div class="form-group">
-	          <input id="urlInput" type="text" class="form-control" placeholder="GitHub repo root URL or sub-folder URL">
+	          <input id="urlInput" onclick="this.select();" type="text" class="form-control" placeholder="GitHub repo root URL or sub-folder URL">
 	        </div>
 	        <button id="urlSearch" type="button" class="btn btn-default">
 	        	<!-- <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Zip and Download -->
@@ -171,6 +171,24 @@
 		// https://api.github.com/repos/fatcloud/PyCV-time/git/blobs/4f21b1fc02f3a1dce86813c335ed9cf9298eb19d
 		var _isProcessing = false;
 
+		var clearResults = function(){
+			$("#pathContainer").hide();
+			$("#pathLead").html("");
+			$("#results").html("");
+		};
+
+		var showResults = function(o){
+			generatePathLinks(o);
+			$('#pathContainer').show();
+			_onWindowResize();
+		};
+
+		// var _doLoading = function(){
+
+		// };
+		// var _doLoaded = function(){
+
+		// };
 
 		var zipItButtonClick = function(o){
 			// o.getAttribute('git-url')
@@ -209,7 +227,7 @@
 		var getFileButtonClick = function(o){
 			// o.getAttribute('git-url')
 			// var baseUrl = "https://api.github.com/repos/fatcloud/PyCV-time/contents/";
-			var url = o.getAttribute('git-url');
+			var url = o['git-url'] || o.getAttribute('git-url');
 			if(url){
 				var down = document.createElement('a');
 				down.setAttribute('download', true);
@@ -346,17 +364,32 @@
 			// https://github.com/motephyr/font_20140714
 			// https://api.github.com/repos/fatcloud/PyCV-time/contents/
 			var resolved = resolveUrl(repoUrl);
+			if(!resolved){
+				// invalid url
+			}
 			var contentBaseUrl = ["https://raw.githubusercontent.com", 
 				resolved.author, resolved.project, resolved.branch].join("/");
-			generatePathLinks(resolved);
-			$('#pathContainer').show();
-			_onWindowResize();
 			$.ajax({
 			    url: "https://api.github.com/repos/"+ resolved.author + 
 			    	"/" + resolved.project + "/contents/" + resolved.path + 
 			    	"?ref=" + resolved.branch,
 			    success: function(results) {
 			    	var templateText = '';
+			    	if(!Array.isArray(results)){
+			    		if(results.message) alert("Error: " +  results.message); 
+			    		else getFileButtonClick({ 'git-url': contentBaseUrl + "/" + results.path});
+			    		return;
+			    	}
+			    	results.sort(function(a,b){
+			    		if(a.type == b.type){
+			    			if(a.path < b.path) return -1;
+			    			else if(a.path > b.path) return 1;
+			    			else return 0;
+			    		}else{
+			    			if(a.type == "dir") return -1;
+			    			else return 1;
+			    		}
+			    	});
 			        for(var i = 0, len = results.length; i < len; i++){
 			            var item = results[i],
 			            	valueText = item.path,
@@ -385,6 +418,7 @@
 								+ downText + '</button></td></tr>';
 			        }
 			        $('#results').html(templateText);
+			        showResults(resolved);
 			    },
 			    error:function(results){
 			    	putLogs(results);
@@ -399,6 +433,7 @@
 				// 	processLocked = true;
 				// 	zipIt(resolveUrl($("#urlInput").val()));
 				// }
+				clearResults();
 				renderCells($("#urlInput").val());
 			};
 			$(window).on('resize', _onWindowResize);
