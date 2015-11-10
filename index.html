@@ -117,8 +117,8 @@
 	<div id="scroller" class="container container-scroll">
 		<table class="table table-hover">
 			<colgroup>
-	            <col class="col-md-5">
-	            <col class="col-md-4">
+	            <col class="col-md-6">
+	            <col class="col-md-3">
 	            <col class="col-md-3">
 	        </colgroup>
 			<!-- <thead>
@@ -387,6 +387,8 @@
 			    		return;
 			    	}
 			    	results.sort(function(a,b){
+			    		if(a.type == 'file' && !a.size) return -1;
+			    		if(b.type == 'file' && !b.size) return 1;
 			    		if(a.type == b.type){
 			    			if(a.path < b.path) return -1;
 			    			else if(a.path > b.path) return 1;
@@ -401,7 +403,7 @@
 			            	valueText = item.path,
 			            	pathText = valueText.split('/').pop(),
 			            	urlText = item.git_url,
-			            	onclickHTML = "",
+			            	onclickHTML = "", externalLink = false,
 			            	icon, downText, getMethod;
 			            if(item.type == "dir"){
 							icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
@@ -411,18 +413,25 @@
 								item.html_url + '">' + pathText + '</a>';
 								// resolved.rootUrl + "/" + valueText
 			            }else{
-							icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
-							downText = "Get File";
-							getMethod = "getFileButtonClick";
-							onclickHTML = pathText;
-							urlText = item.download_url;
+			            	if(item.size){
+			            		icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
+								downText = "Get File";
+								getMethod = "getFileButtonClick";
+								onclickHTML = pathText;
+								urlText = item.download_url;
+			            	}else{
+			            		externalLink = true;
+			            		icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
+			            		onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
+			            	}
 			            }
 			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
-		  					'<td><button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
+		  					'<td>' + (externalLink? "" : 
+		  						('<button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
 		  						'git-url="' + urlText + '" onclick="'
 		  						+ getMethod + '(this);">' + 
 								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
-								+ downText + '</button></td><td></td></tr>';
+								+ downText + '</button>')) + '</td><td></td></tr>';
 			        }
 			        $('#results').html(templateText);
 			        showResults(resolved);
