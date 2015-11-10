@@ -203,16 +203,18 @@
 						var promises = [];
 						var fileContents = [];
 						results.tree.forEach(function(item){
-							promises.push(Promise.resolve(
-					        	$.ajax({
-									url: item.url,
-									success: (function(path){
-										return function(results){
-											fileContents.push({path:path,content:results.content});
-										};
-									})(item.path)
-								})	
-					        ));
+							if(item.type == "blob"){
+								promises.push(Promise.resolve(
+						        	$.ajax({
+										url: item.url,
+										success: (function(path){
+											return function(results){
+												fileContents.push({path:path,content:results.content});
+											};
+										})(item.path)
+									})	
+						        ));
+							}
 						});
 						Promise.all(promises).then(function() {
 					    	var zip = new JSZip();
