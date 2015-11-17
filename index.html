@@ -217,6 +217,11 @@
 					success: function(results){
 						var promises = [];
 						var fileContents = [];
+						if(results.truncated){
+							alert("The tree travels is over than API limitation (500 files)");
+							load_module.loaded();
+							return;
+						};
 						results.tree.forEach(function(item){
 							if(item.type == "blob"){
 								promises.push(Promise.resolve(
