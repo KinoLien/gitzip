@@ -20,10 +20,11 @@
   				margin-right: 5px;
   			}
   		}
-  		/*.loading{
-  			height: 100%;
+  		.loading{
+  			margin: 7px 5px;
+  			display: none;
   		}
-*/
+
 		.container-scroll{
 			overflow:auto;
 		}
@@ -117,8 +118,8 @@
 	<div id="scroller" class="container container-scroll">
 		<table class="table table-hover">
 			<colgroup>
-	            <col class="col-md-6">
-	            <col class="col-md-3">
+	            <col class="col-md-7">
+	            <col class="col-md-2">
 	            <col class="col-md-3">
 	        </colgroup>
 			<!-- <thead>
@@ -184,19 +185,33 @@
 			_onWindowResize();
 		};
 
-		// var _doLoading = function(){
-
-		// };
-		// var _doLoaded = function(){
-
-		// };
+		var load_module = {
+			target: null,
+			isLoading:false,
+			loading: function(o){
+				this.isLoading = true;
+				if(o){
+					this.target = o.parentElement.nextElementSibling.firstChild;
+				}
+				if(this.target){
+					this.target.style['display'] = "block";
+				}
+			},
+			loaded: function(){
+				this.isLoading = false;
+				if(this.target){
+					this.target.style['display'] = "none";
+				}
+			}
+		};
 
 		var zipItButtonClick = function(o){
 			// o.getAttribute('git-url')
 			// o.getAttribute('git-name')
 			var zipName = o.getAttribute('git-name');
 			var url = o.getAttribute('git-url');
-			if(url && !_isProcessing){
+			if(url && !load_module.isLoading){
+				load_module.loading(o);
 				$.ajax({
 					url: url + "?recursive=1",
 					success: function(results){
@@ -222,7 +237,15 @@
 					    		zip.file(item.path, item.content, {createFolders:true,base64:true});
 					    	});
 					    	saveAs(zip.generate({type:"blob"}), zipName + ".zip");
+					    	load_module.loaded();
+					    },function(item){
+					    	if(item) alert(JSON.stringify(item) + " ERROR");
+					    	load_module.loaded();
 					    });
+					},
+					error:function(e){ 
+						alert(e);
+						load_module.loaded();
 					}
 				})	
 			}
@@ -231,11 +254,13 @@
 			// o.getAttribute('git-url')
 			// var baseUrl = "https://api.github.com/repos/fatcloud/PyCV-time/contents/";
 			var url = o['git-url'] || o.getAttribute('git-url');
-			if(url){
+			if(url && !load_module.isLoading){
+				load_module.loading(o);
 				var down = document.createElement('a');
 				down.setAttribute('download', true);
 				down.href = url;
 				down.click();
+				load_module.loaded();
 			}
 		};
 
@@ -372,6 +397,8 @@
 			var resolved = resolveUrl(repoUrl);
 			if(!resolved){
 				// invalid url
+				alert("URL is invalid.");
+				return;
 			}
 			// var contentBaseUrl = ["https://raw.githubusercontent.com", 
 			// 	resolved.author, resolved.project, resolved.branch || ""].join("/");
@@ -431,13 +458,15 @@
 		  						'git-url="' + urlText + '" onclick="'
 		  						+ getMethod + '(this);">' + 
 								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
-								+ downText + '</button>')) + '</td><td></td></tr>';
+								+ downText + '</button>')) + '</td><td>' +
+		  						'<div class="loading"><span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span> Loading...</div>'
+								+ '</td></tr>';
 			        }
 			        $('#results').html(templateText);
 			        showResults(resolved);
 			    },
 			    error:function(results){
-			    	putLogs(results);
+			    	putLogs(JSON.stringify(results));
 			    }
 			});
 		};
