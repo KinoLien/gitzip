@@ -1,4 +1,4 @@
 # gitzip
 
 ### Description
-It can help you to download sub-folders/sub-directories as zip of github repository.
+It can make sub-folder/sub-directory of github repository as zip and download it.
