@@ -86,6 +86,10 @@
 	        <div class="form-group">
 	          <input id="urlInput" onclick="this.select();" type="text" class="form-control" placeholder="GitHub repo root URL or sub-folder URL">
 	        </div>
+	        <button id="urlDownload" type="button" class="btn btn-default">
+	        	<!-- <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Zip and Download -->
+	        	<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Download
+	        </button>
 	        <button id="urlSearch" type="button" class="btn btn-default">
 	        	<!-- <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> Zip and Download -->
 	        	<span class="glyphicon glyphicon-search" aria-hidden="true"></span> Search
@@ -188,19 +192,41 @@
 		var load_module = {
 			target: null,
 			isLoading:false,
+			_isForm: false,
+			_cachedClass: [],
+			_loadingClass: ["glyphicon-refresh","glyphicon-refresh-animate"],
+			_defaultTarget: document.getElementById('urlSearch').querySelector(".glyphicon"),
 			loading: function(o){
 				this.isLoading = true;
 				if(o){
-					this.target = o.parentElement.nextElementSibling.firstChild;
-				}
-				if(this.target){
-					this.target.style['display'] = "block";
+					this._isInCell = o.getAttribute('git-type') == 'cell';
+					if(this._isInCell){
+						this.target = o.parentElement.nextElementSibling.firstChild;
+						this.target.style['display'] = "block";
+					}else{
+						var t = this.target = o.querySelector(".glyphicon") || this._defaultTarget;
+						var list = t.classList;
+						for(var len = list.length; --len > 0;){
+							this._cachedClass.push(list[len]);
+							list.remove(list[len]);
+						}
+						this._loadingClass.forEach(function(item){ list.add(item); });
+					}
 				}
 			},
 			loaded: function(){
 				this.isLoading = false;
 				if(this.target){
-					this.target.style['display'] = "none";
+					if(this._isInCell){
+						this.target.style['display'] = "none";
+					}else{
+						var t = this.target;
+						var list = t.classList;
+						for(var len = list.length; --len > 0;)
+							list.remove(list[len]);
+						this._cachedClass.forEach(function(item){ list.add(item); });
+						this._cachedClass = [];
+					}
 				}
 			}
 		};
@@ -258,14 +284,16 @@
 		var getFileButtonClick = function(o){
 			// o.getAttribute('git-url')
 			// var baseUrl = "https://api.github.com/repos/fatcloud/PyCV-time/contents/";
-			var url = o['git-url'] || o.getAttribute('git-url');
+			var url = o.getAttribute('git-url');
 			if(url && !load_module.isLoading){
 				load_module.loading(o);
 				var down = document.createElement('a');
 				down.setAttribute('download', true);
 				down.href = url;
-				down.click();
-				load_module.loaded();
+				down.addEventListener('click', function(e){load_module.loaded();});
+				setTimeout(function(){
+					down.click();
+				},100);
 			}
 		};
 
@@ -275,7 +303,7 @@
 
 		var changeDirectoryClick = function(o){
 			var url = o.getAttribute('value');
-			if(url){ renderCells(url); }
+			if(url){ renderCells.call(o, url); }
 		};
 
 		var _onWindowResize = function(){
@@ -300,76 +328,76 @@
 			return res;
 		};
 
-		var zipIt = function(resolved){
-			if(!resolved.path){
-				// root
-			}else if(resolved.type == "tree"){
-				// folder
+		// var zipIt = function(resolved){
+		// 	if(!resolved.path){
+		// 		// root
+		// 	}else if(resolved.type == "tree"){
+		// 		// folder
 
-				// https://api.github.com/repos/fatcloud/PyCV-time/contents/members
-				putLogs("Collect content urls of files recursively.");
-				(new Promise(function(resolve, reject) {
-			      	$.ajax({
-					    url: "https://api.github.com/repos/"+ resolved.author + 
-					    	"/" + resolved.project + "/contents/" + resolved.path + 
-					    	"?ref=" + resolved.branch || 'master',
-					    success: function(results) {
-					    	var treeCount = 1;
-					        for(var i = 0, len = results.length; i < len; i++){
-					            var item = results[i];
-					            if(results[i].type == "dir"){
-					                filetrees.push({
-					                	url: item.git_url,
-					                	path: item.path
-					                });
-					            }else{
-					            	putLogs(item.path + " collected");
-					            	contentUrlCollection.push({
-					            		path: item.path,
-					            		url: item.git_url
-					            	});
-					            }
-					        }
-					        resolve(filetrees);
-					    },
-					    error:function(results){
-					    	reject(results);
-					    }
-					});
-			    })).then(function(res){
-				    var promises = [];
-					for(var i = 0, len = res.length; i < len; i++){
-				        promises.push(Promise.resolve(
-				        	$.ajax({
-								url: res[i].url + "?recursive=1",
-								success: (function(parentPath){
-									return function(results){
-										results.tree.forEach(function(item){
-											var path = parentPath + "/" + item.path;
-											putLogs(path + " collected");
-											contentUrlCollection.push({
-												path: path,
-												url: item.url
-											});
-										});
-									};
-								})(res[i].path)
-							})	
-				        ));
-					}
-					Promise.all(promises).then(function() {
-				    	putLogs(JSON.stringify(contentUrlCollection));
-				    }, function(error){
-				    	putLogs(error);	
-				    });
-				}, function(error){
-					putLogs(error);
-				});
+		// 		// https://api.github.com/repos/fatcloud/PyCV-time/contents/members
+		// 		putLogs("Collect content urls of files recursively.");
+		// 		(new Promise(function(resolve, reject) {
+		// 	      	$.ajax({
+		// 			    url: "https://api.github.com/repos/"+ resolved.author + 
+		// 			    	"/" + resolved.project + "/contents/" + resolved.path + 
+		// 			    	"?ref=" + resolved.branch || 'master',
+		// 			    success: function(results) {
+		// 			    	var treeCount = 1;
+		// 			        for(var i = 0, len = results.length; i < len; i++){
+		// 			            var item = results[i];
+		// 			            if(results[i].type == "dir"){
+		// 			                filetrees.push({
+		// 			                	url: item.git_url,
+		// 			                	path: item.path
+		// 			                });
+		// 			            }else{
+		// 			            	putLogs(item.path + " collected");
+		// 			            	contentUrlCollection.push({
+		// 			            		path: item.path,
+		// 			            		url: item.git_url
+		// 			            	});
+		// 			            }
+		// 			        }
+		// 			        resolve(filetrees);
+		// 			    },
+		// 			    error:function(results){
+		// 			    	reject(results);
+		// 			    }
+		// 			});
+		// 	    })).then(function(res){
+		// 		    var promises = [];
+		// 			for(var i = 0, len = res.length; i < len; i++){
+		// 		        promises.push(Promise.resolve(
+		// 		        	$.ajax({
+		// 						url: res[i].url + "?recursive=1",
+		// 						success: (function(parentPath){
+		// 							return function(results){
+		// 								results.tree.forEach(function(item){
+		// 									var path = parentPath + "/" + item.path;
+		// 									putLogs(path + " collected");
+		// 									contentUrlCollection.push({
+		// 										path: path,
+		// 										url: item.url
+		// 									});
+		// 								});
+		// 							};
+		// 						})(res[i].path)
+		// 					})	
+		// 		        ));
+		// 			}
+		// 			Promise.all(promises).then(function() {
+		// 		    	putLogs(JSON.stringify(contentUrlCollection));
+		// 		    }, function(error){
+		// 		    	putLogs(error);	
+		// 		    });
+		// 		}, function(error){
+		// 			putLogs(error);
+		// 		});
 
-			}else{
-				// blob
-			}
-		};
+		// 	}else{
+		// 		// blob
+		// 	}
+		// };
 
 		var resolveUrl = function(repoUrl){
 			if(typeof repoUrl != 'string') return;
@@ -405,6 +433,8 @@
 				alert("URL is invalid.");
 				return;
 			}
+			if(load_module.isLoading) return;
+			load_module.loading(this);
 			// var contentBaseUrl = ["https://raw.githubusercontent.com", 
 			// 	resolved.author, resolved.project, resolved.branch || ""].join("/");
 			$.ajax({
@@ -415,7 +445,11 @@
 			    	var templateText = '';
 			    	if(!Array.isArray(results)){
 			    		if(results.message) alert("Error: " +  results.message); 
-			    		else getFileButtonClick({ 'git-url': results.download_url});
+			    		else{
+			    			var btn = document.getElementById('urlDownload');
+			    			btn.setAttribute('git-url', results.download_url);
+			    			getFileButtonClick(btn);
+			    		};
 			    		return;
 			    	}
 			    	results.sort(function(a,b){
@@ -460,7 +494,7 @@
 			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
 		  					'<td>' + (externalLink? "" : 
 		  						('<button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
-		  						'git-url="' + urlText + '" onclick="'
+		  						'git-url="' + urlText + '" git-type="cell" onclick="'
 		  						+ getMethod + '(this);">' + 
 								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
 								+ downText + '</button>')) + '</td><td>' +
@@ -469,6 +503,7 @@
 			        }
 			        $('#results').html(templateText);
 			        showResults(resolved);
+			        load_module.loaded();
 			    },
 			    error:function(results){
 			    	putLogs(JSON.stringify(results));
@@ -477,18 +512,79 @@
 		};
 
 		$(window).load(function(){
+			var viewHandler = function(e){
+				e.preventDefault();
+				clearResults();
+				renderCells.call(this, $("#urlInput").val());
+			};
 			var submitHandler = function(e){
 				e.preventDefault();
-				// if(processLocked == false){
-				// 	processLocked = true;
-				// 	zipIt(resolveUrl($("#urlInput").val()));
-				// }
-				clearResults();
-				renderCells($("#urlInput").val());
+				var resolved = resolveUrl($("#urlInput").val());
+				if(!resolved){
+					// invalid url
+					alert("URL is invalid.");
+					return;
+				}
+				var btn = document.getElementById('urlDownload');
+				if(!resolved.path){
+					// root
+					var durl = [
+						"https://github.com", resolved.author, resolved.project, 
+						"archive", (resolved.branch || 'master')
+					].join('/');
+					btn.setAttribute('git-url', durl + ".zip");
+					getFileButtonClick(btn);
+					// https://github.com/threerings/react/archive/master.zip
+				}else{
+					// get up level url
+					var originInput = resolved.inputUrl;
+					if(resolved.type == "tree"){
+						var news = originInput.split('/');
+						news.pop();
+						resolved = resolveUrl(news.join('/'));
+					}
+					if(load_module.isLoading) return;
+					load_module.loading(btn);
+					$.ajax({
+					    url: "https://api.github.com/repos/"+ resolved.author + 
+					    	"/" + resolved.project + "/contents/" + resolved.path + 
+					    	(resolved.branch? ("?ref=" + resolved.branch) : ""),
+					    success: function(results) {
+					    	load_module.loaded();
+					    	var templateText = '';
+					    	if(!Array.isArray(results)){
+					    		if(results.message) alert("Error: " +  results.message); 
+					    		else{
+					    			//var btn = document.getElementById('urlDownload');
+					    			btn.setAttribute('git-url', results.download_url);
+					    			getFileButtonClick(btn);
+					    		};
+					    		return;
+					    	}
+					        for(var i = 0, len = results.length; i < len; i++){
+					            var item = results[i];
+					            if(item.type == "dir" && item.html_url == originInput){
+					            	var valueText = item.path,
+					            		pathText = valueText.split('/').pop(),
+					            		urlText = item.git_url;
+					            	btn.setAttribute('git-name', pathText);
+					            	btn.setAttribute('git-url', urlText);
+					            	zipItButtonClick(btn);
+					            	break;
+					            }
+					        }
+					    },
+					    error:function(results){
+					    	putLogs(JSON.stringify(results));
+					    }
+					});
+				}
+				// renderCells.call(this, $("#urlInput").val());
 			};
 			$(window).on('resize', _onWindowResize);
 			$("#urlForm").on('submit', submitHandler);
-			$("#urlSearch").on('click', submitHandler);
+			$("#urlDownload").on('click', submitHandler);
+			$("#urlSearch").on('click', viewHandler);
 		});
 
 	</script>
