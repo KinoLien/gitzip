@@ -1,11 +1,48 @@
-<script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
-<script type="text/javascript" src="js/bootstrap.min.js"></script>
-<script type="text/javascript" src="js/FileSaver.min.js"></script>
-<script type="text/javascript" src="js/jszip.min.js"></script>
-<script type="text/javascript" src="js/API.js"></script>
-<script>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>GitZip Example</title>
+  <script type="text/javascript" src="js/jquery-1.11.3.min.js"></script>
+  <script type="text/javascript" src="js/FileSaver.min.js"></script>
+  <script type="text/javascript" src="js/jszip.min.js"></script>
+  <script type="text/javascript" src="js/API.js"></script>
+</head>
+<body>
+  <script>
+  'use strict';
 
- // call GitZip.zipRepo(url) with your url path to your github folder
- // such as GitZip.zipRepo('https://github.com/kennethgoodman/gitzip/tree/gh-pages/js')
+  // call GitZip.zipRepo(url) with your url path to your github folder
+  // such as GitZip.zipRepo('https://github.com/kennethgoodman/gitzip/tree/gh-pages/js')
 
-</script>
+  var exampleRx = /^\s*GitZip\.zipRepo\("([^"]+)"\);$/gm;
+
+  var createButtons = function (urls) {
+    urls.forEach(function (url) {
+      var button = document.createElement('button');
+      button.textContent = url;
+      button.addEventListener('click', function () {
+        GitZip.zipRepo(url);
+      });
+      document.body.appendChild(button);
+      document.body.appendChild(document.createElement('br'));
+    });
+  };
+
+  // fetches example URLs from the README
+  var req = new XMLHttpRequest();
+  req.open('GET', 'README.md');
+  req.overrideMimeType('text/plain');
+  req.onload = function (ev) {
+    var examples = [];
+    var match;
+    while (match = exampleRx.exec(this.responseText)) {
+      examples.push(match[1]);
+    }
+    createButtons(examples);
+  };
+  req.send();
+
+  </script>
+</body>
+</html>
