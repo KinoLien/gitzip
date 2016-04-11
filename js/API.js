@@ -72,7 +72,10 @@
                 progressCallback.call(callbackScope, 'done', 'Saving File.');
             });
             setTimeout(function(){
+                // link has to be in the page DOM for it to work with Firefox
+                document.body.appendChild(down);
                 down.click();
+                down.parentNode.removeChild(down);
             },100);
         }
     }
