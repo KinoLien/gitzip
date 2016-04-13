@@ -41,7 +41,7 @@
         if(typeof repoUrl != 'string') return;
         var matches = repoUrl.match(repoExp);
         if(matches && matches.length > 0){
-            var root = (matches[5])? 
+            var root = (matches[5])?
                 "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + matches[5] :
                 repoUrl;
             return {
@@ -65,21 +65,37 @@
         callbackScope = callbackScope || scope;
         if(url){
             progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
-            var down = document.createElement('a');
-            down.setAttribute('download', true);
-            down.href = url;
-            down.addEventListener('click', function(e){
-                progressCallback.call(callbackScope, 'done', 'Saving File.');
-            });
-            setTimeout(function(){
-                // link has to be in the page DOM for it to work with Firefox
-                document.body.appendChild(down);
-                down.click();
-                down.parentNode.removeChild(down);
-            },100);
+
+            $.get(url)
+                .fail(function(jqXHR, textStatus, errorThrown){
+                  console.error('downloadZip > $.get fail:', textStatus);
+                  if (errorThrown) throw errorThrown;
+                })
+
+                .done(function(data, textStatus, jqXHR){
+                    var blob = new Blob([data], {
+                        type: jqXHR.getResponseHeader('Content-Type') ||
+                            'application/octet-stream'
+                    });
+
+                    var down = document.createElement('a');
+                    down.download = url.substring(url.lastIndexOf('/') + 1);
+                    down.href = URL.createObjectURL(blob);
+
+                    down.addEventListener('click', function(e){
+                        progressCallback.call(callbackScope, 'done', 'Saving File.');
+                    });
+
+                    setTimeout(function(){
+                        // link has to be in the page DOM for it to work with Firefox
+                        document.body.appendChild(down);
+                        down.click();
+                        down.parentNode.removeChild(down);
+                    }, 100);
+              });
         }
     }
-    
+
     /**
      * Download zip file from github api url.
      * @param {string} zipName - The zip file name.
@@ -116,7 +132,7 @@
                                                 ++progressCallback._idx / (progressCallback._len * 2) * 100);
                                         };
                                     })(item.path)
-                                })  
+                                })
                             ));
                         }
                     });
@@ -137,11 +153,11 @@
                         }
                     });
                 },
-                error:function(e){ 
+                error:function(e){
                     progressCallback.call(callbackScope, 'error', 'Error: ' + e);
                     throw (e);
                 }
-            }); 
+            });
         }
     }
 
@@ -162,7 +178,7 @@
         if(!resolved.path){
             // root
             var durl = [
-                "https://github.com", resolved.author, resolved.project, 
+                "https://github.com", resolved.author, resolved.project,
                 "archive", (resolved.branch || 'master')
             ].join('/');
             var gitURL = durl + ".zip";
@@ -177,8 +193,8 @@
             }
             progressCallback.call(callbackScope, 'prepare', 'Finding file/dir content path from resolved URL');
             $.ajax({
-                url: "https://api.github.com/repos/"+ resolved.author + 
-                    "/" + resolved.project + "/contents/" + resolved.path + 
+                url: "https://api.github.com/repos/"+ resolved.author +
+                    "/" + resolved.project + "/contents/" + resolved.path +
                     (resolved.branch? ("?ref=" + resolved.branch) : ""),
                 success: function(results) {
                     var templateText = '';
@@ -218,7 +234,7 @@
      */
     function registerCallback(inputFn){
         if(typeof inputFn == 'function'){
-            // progressCallback = callback;    
+            // progressCallback = callback;
             progressCallback = function(){
                 inputFn.apply(this, arguments);
                 statusHandle.apply(this, arguments);
