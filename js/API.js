@@ -57,6 +57,26 @@
     }
 
     /**
+     * Force to trigger download dialog for any mine-type files using Native A Element.
+     * @param {string} url - The URL.
+     * @param {object|undefined} callbackScope - The scope of the progressCallback function.
+     */
+    function downloadZipUseElement(url, callbackScope){
+        var down = document.createElement('a');
+        down.setAttribute('download', true);
+        down.href = url;
+        down.addEventListener('click', function(e){
+            progressCallback.call(callbackScope, 'done', 'Saving File.');
+        });
+        setTimeout(function(){
+            // link has to be in the page DOM for it to work with Firefox
+            document.body.appendChild(down);
+            down.click();
+            down.parentNode.removeChild(down);
+        },100);
+    }
+
+    /**
      * Force to trigger download dialog for any mine-type files.
      * @param {string} url - The URL.
      * @param {object|undefined} callbackScope - The scope of the progressCallback function.
@@ -182,7 +202,8 @@
                 "archive", (resolved.branch || 'master')
             ].join('/');
             var gitURL = durl + ".zip";
-            downloadZip(gitURL, callbackScope);
+            // downloadZip(gitURL, callbackScope);
+            downloadZipUseElement(gitURL, callbackScope);
         } else{
             // get up level url
             var originInput = resolved.inputUrl;
