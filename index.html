@@ -376,6 +376,11 @@
 							onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
 								item.html_url + '">' + pathText + '</a>';
 								// resolved.rootUrl + "/" + valueText
+			            }else if(item.type == "symlink"){
+			            	// symlink
+			            	externalLink = true;
+			            	icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
+			            	onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
 			            }else{
 			            	if(item.size){
 			            		icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
@@ -405,6 +410,7 @@
 			    },
 			    error:function(results){
 			    	putLogs(JSON.stringify(results));
+			    	load_module.loaded();
 			    }
 			});
 		};
