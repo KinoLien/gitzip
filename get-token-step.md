@@ -14,7 +14,7 @@ The browser would trigger download, and then save it.
 
 ### Step 4
 
-Open the file:
+Open the file:  
 ![Image of Step4](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step4.png)
 
 ### Step 5
