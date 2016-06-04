@@ -2,11 +2,11 @@
 
 ### Step 1
 
-![Image of Step1](https://github.com/KinoLien/gitzip/tree/gh-pages/images/get-token-step1.png)
+![Image of Step1](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step1.png)
 
 ### Step 2
 
-![Image of Step2](https://github.com/KinoLien/gitzip/tree/gh-pages/images/get-token-step2.png)
+![Image of Step2](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step2.png)
 
 ### Step 3
 
@@ -15,11 +15,11 @@ The browser would trigger download, and then save it.
 ### Step 4
 
 Open the file:
-![Image of Step4](https://github.com/KinoLien/gitzip/tree/gh-pages/images/get-token-step4.png)
+![Image of Step4](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step4.png)
 
 ### Step 5
 
-![Image of Step5](https://github.com/KinoLien/gitzip/tree/gh-pages/images/get-token-step5.png)
+![Image of Step5](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step5.png)
 
 ### Finally
 
