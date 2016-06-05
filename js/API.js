@@ -4,6 +4,10 @@
     var repoExp = new RegExp("^https://github.com/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?");
     var githubProvidedUrl = new RegExp("^https://api.github.com/.*");
     var isBusy = false;
+    var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0 && 
+        /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+    var token;
 
     var statusHandle = function(status){
         if(status == 'error' || status == 'done') isBusy = false;
@@ -85,8 +89,9 @@
         callbackScope = callbackScope || scope;
         if(url){
             progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
-
-            $.get(url)
+            var params = {};
+            if(token) params["access_token"] = token;
+            $.get( { url: url, data: params } )
                 .fail(function(jqXHR, textStatus, errorThrown){
                   console.error('downloadZip > $.get fail:', textStatus);
                   if (errorThrown) throw errorThrown;
@@ -126,8 +131,12 @@
         callbackScope = callbackScope || scope;
         if(url && githubProvidedUrl.test(url)){
             progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
+            var params = {};
+            if(token) params["access_token"] = token;
+            params["recursive"] = 1;
             $.ajax({
-                url: url + "?recursive=1",
+                url: url,
+                data: params,
                 success: function(results){
                     var promises = [];
                     var fileContents = [];
@@ -142,9 +151,12 @@
                     });
                     results.tree.forEach(function(item){
                         if(item.type == "blob"){
+                            var p = {};
+                            if(token) p["access_token"] = token;
                             promises.push(Promise.resolve(
                                 $.ajax({
                                     url: item.url,
+                                    data: p,
                                     success: (function(path){
                                         return function(results){
                                             fileContents.push({path:path,content:results.content});
@@ -164,7 +176,19 @@
                                 ++progressCallback._idx / (progressCallback._len * 2) * 100);
                             zip.file(item.path, item.content, {createFolders:true,base64:true});
                         });
-                        saveAs(zip.generate({type:"blob"}), zipName + ".zip");
+                        // saveAs(zip.generate({type:"blob"}), zipName + ".zip");
+                        if(isSafari){
+                            zip.generateAsync({type:"base64"})
+                            .then(function (content) {
+                                downloadZipUseElement("data:application/zip;base64," + content);
+                                alert("Please remember change file name to xxx.zip");
+                            });
+                        }else{
+                            zip.generateAsync({type:"blob"})
+                            .then(function (content) {
+                                saveAs(content, zipName + ".zip");
+                            });
+                        }
                         progressCallback.call(callbackScope, 'done', 'Saving ' + zipName + '.zip');
                     },function(item){
                         if(item){
@@ -213,10 +237,13 @@
                 resolved = resolveUrl(news.join('/'));
             }
             progressCallback.call(callbackScope, 'prepare', 'Finding file/dir content path from resolved URL');
+            var params = {};
+            if(resolved.branch) params["ref"] = resolved.branch;
+            if(token) params["access_token"] = token;
             $.ajax({
                 url: "https://api.github.com/repos/"+ resolved.author +
-                    "/" + resolved.project + "/contents/" + resolved.path +
-                    (resolved.branch? ("?ref=" + resolved.branch) : ""),
+                    "/" + resolved.project + "/contents/" + resolved.path,
+                data: params,
                 success: function(results) {
                     var templateText = '';
                     if(!Array.isArray(results)){
@@ -263,10 +290,15 @@
         }
     }
 
+    function setAccessToken(strToken){
+        token = strToken;
+    }
+
     fn.zipRepo = createURL;
     fn.zipFromApiUrl = zipIt;
     fn.downloadFile = downloadZip;
     fn.registerCallback = registerCallback;
+    fn.setAccessToken = setAccessToken;
 
     scope.GitZip = fn;
 
