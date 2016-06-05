@@ -7,6 +7,8 @@
   	<script>
   		window.ACCESS_TOKEN_COOKIE_NAME = '_gitzip_token';
 
+  		window.is_firefox = /firefox|iceweasel/i.test(navigator.userAgent);
+
   		function _getCookie(name) {
 			var value = "; " + document.cookie;
 			var parts = value.split("; " + name + "=");
@@ -65,6 +67,9 @@
 
 	  				// document.body.appendChild(returnFrame);
 
+	  				if(is_firefox){
+		  				form.style.cssText = "width:0px;height:0px;position:fixed;left:0;bottom:0;";
+		  			}
 	  				// form.enctype = "application/x-www-form-urlencoded";
 	  				form.enctype = "application/json";
 	  				form.method = "post";
@@ -81,8 +86,13 @@
 	  				form.submit();
 
 	  				function afterDownloadFocus(){
-	  					window.removeEventListener('focus', afterDownloadFocus, false);
-	  					location.replace(location.href.split('?')[0]);
+	  					if(is_firefox){
+	  						// wait for event trigger again.
+	  						is_firefox = false;
+	  					}else{
+	  						window.removeEventListener('focus', afterDownloadFocus, false);
+	  						location.replace(location.href.split('?')[0]);
+	  					}
 	  				}
 	  				window.addEventListener('focus', afterDownloadFocus, false);
 	  			}
@@ -172,7 +182,7 @@
 	      	<!-- <span class="glyphicon glyphicon-arrow-right" aria-hidden="true"></span> -->
 	      </p>
 	      <form class="navbar-form navbar-right" role="search" id="urlForm">
-	      	<button id="tokenTaking" type="button" class="btn btn-default" style="padding-left: 6px; display: none;" data-toggle="collapse" data-target="#tokenTakingPanel">&#128273</button>
+	      	<button id="tokenTaking" type="button" class="btn btn-default" style="padding-left: 6px;" data-toggle="collapse" data-target="#tokenTakingPanel">&#128273</button>
 	        <div class="form-group">
 	          <input id="urlInput" onclick="this.select();" type="text" class="form-control" placeholder="GitHub repo root URL or sub-folder URL">
 	        </div>
