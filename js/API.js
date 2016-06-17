@@ -35,6 +35,65 @@
      */
     var progressCallback = function(status, message, percent){};
 
+    var _getContentOfGitUrl = function(url, params){
+        params = params || {};
+        if(token) params["access_token"] = token;
+        return Promise.resolve(
+            $.ajax({
+                url: url,
+                data: params
+            })
+        ).then(function(results){ return results.content; });
+    };
+
+    var _getTreeOfGitUrl = function(url, params){
+        params = params || {};
+        if(token) params["access_token"] = token;
+        return Promise.resolve(
+            $.ajax({
+                url: url,
+                data: params
+            })
+        ).then(function(results){
+            var nextReturn = [];
+            if(results.truncated){
+                progressCallback.call(callbackScope, 'error', 'The tree travels is over than API limitation (500 files)');
+                throw ("The tree travels is over than API limitation (500 files)");
+            };
+            results.tree.forEach(function(item){
+                if(item.type == "blob"){
+                    progressCallback._len++;
+                    nextReturn.push({url: item.url, path: item.path});
+                }
+            });
+            return nextReturn;
+        });
+    };
+
+    var _zipContents = function(filename, contents, callbackScope){
+        var zip = new JSZip();
+        contents.forEach(function(item){
+            progressCallback.call(callbackScope, 'processing', 'Compressing ' + item.path,
+                ++progressCallback._idx / (progressCallback._len * 2) * 100);
+            zip.file(item.path, item.content, {createFolders:true,base64:true});
+        });
+        if(isSafari){
+            zip.generateAsync({type:"base64"})
+            .then(function (content) {
+                downloadZipUseElement("data:application/zip;base64," + content);
+                alert("Please remember change file name to xxx.zip");
+            });
+        }else{
+            zip.generateAsync({type:"blob"})
+            .then(function (content) {
+                saveAs(content, filename + ".zip");
+            }, function(error){
+                console.log(error);
+            });
+        }
+        progressCallback.call(callbackScope, 'done', 'Saving ' + filename + '.zip');
+    };
+
     /**
      * Resolve the github repo url for recognize author, project name, branch name, and so on.
      * @private
@@ -91,7 +150,7 @@
             progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
             var params = {};
             if(token) params["access_token"] = token;
-            $.get( { url: url, data: params } )
+            $.ajax( { url: url, data: params } )
                 .fail(function(jqXHR, textStatus, errorThrown){
                   console.error('downloadZip > $.get fail:', textStatus);
                   if (errorThrown) throw errorThrown;
@@ -152,44 +211,20 @@
                     results.tree.forEach(function(item){
                         if(item.type == "blob"){
                             var p = {};
-                            if(token) p["access_token"] = token;
-                            promises.push(Promise.resolve(
-                                $.ajax({
-                                    url: item.url,
-                                    data: p,
-                                    success: (function(path){
-                                        return function(results){
-                                            fileContents.push({path:path,content:results.content});
-                                            progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
-                                                ++progressCallback._idx / (progressCallback._len * 2) * 100);
-                                        };
-                                    })(item.path)
+                            promises.push(
+                                _getContentOfGitUrl(item.url, p)
+                                .then(function(content){
+                                    var path = item.path;
+                                    fileContents.push({path:path,content:content});
+                                    progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
+                                        ++progressCallback._idx / (progressCallback._len * 2) * 100);
                                 })
-                            ));
+                            );
                         }
                     });
 
                     Promise.all(promises).then(function() {
-                        var zip = new JSZip();
-                        fileContents.forEach(function(item){
-                            progressCallback.call(callbackScope, 'processing', 'Compressing ' + item.path,
-                                ++progressCallback._idx / (progressCallback._len * 2) * 100);
-                            zip.file(item.path, item.content, {createFolders:true,base64:true});
-                        });
-                        // saveAs(zip.generate({type:"blob"}), zipName + ".zip");
-                        if(isSafari){
-                            zip.generateAsync({type:"base64"})
-                            .then(function (content) {
-                                downloadZipUseElement("data:application/zip;base64," + content);
-                                alert("Please remember change file name to xxx.zip");
-                            });
-                        }else{
-                            zip.generateAsync({type:"blob"})
-                            .then(function (content) {
-                                saveAs(content, zipName + ".zip");
-                            });
-                        }
-                        progressCallback.call(callbackScope, 'done', 'Saving ' + zipName + '.zip');
+                        _zipContents(zipName, fileContents, callbackScope);
                     },function(item){
                         if(item){
                             progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
@@ -229,49 +264,83 @@
             // downloadZip(gitURL, callbackScope);
             downloadZipUseElement(gitURL, callbackScope);
         } else{
-            // get up level url
-            var originInput = resolved.inputUrl;
-            if(resolved.type == "tree"){
-                var news = originInput.split('/');
-                news.pop();
-                resolved = resolveUrl(news.join('/'));
-            }
+
             progressCallback.call(callbackScope, 'prepare', 'Finding file/dir content path from resolved URL');
             var params = {};
             if(resolved.branch) params["ref"] = resolved.branch;
-            if(token) params["access_token"] = token;
-            $.ajax({
-                url: "https://api.github.com/repos/"+ resolved.author +
-                    "/" + resolved.project + "/contents/" + resolved.path,
-                data: params,
-                success: function(results) {
-                    var templateText = '';
-                    if(!Array.isArray(results)){
-                        if(results.message){
-                            progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
-                            throw ("Error: " +  results.message);
-                        }else downloadZip(results.download_url, callbackScope);
-                        return;
-                    }
-                    for(var i = 0, len = results.length; i < len; i++){
-                        var item = results[i];
-                        // target has found
-                        if(item.type == "dir" && item.html_url == originInput){
-                            var valueText = item.path;
-                            var pathText = valueText.split('/').pop();
-                            var urlText = item.git_url;
-                            zipIt(pathText, urlText, callbackScope);
-                            break;
-                        }
-                        if(i + 1 == len){
-                            progressCallback.call(callbackScope, 'error', 'File/Dir content not found.');
-                        }
-                    }
-                },
-                error: function(results){
-                    progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
-                    throw (JSON.stringify(results));
+            if(token) params["access_token"] = token;            
+
+            Promise.resolve(
+                $.ajax({
+                    url: "https://api.github.com/repos/"+ resolved.author +
+                        "/" + resolved.project + "/contents/" + resolved.path,
+                    data: params
+                })
+            ).then(function(results){
+                var templateText = '';
+                if(!Array.isArray(results)){
+                    // means file
+                    if(results.message){
+                        progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
+                        throw ("Error: " +  results.message);
+                    }else downloadZip(results.download_url, callbackScope);
+                    return;
                 }
+                progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
+                progressCallback._idx = 0;
+                progressCallback._len = 0;
+                var nextReturn = [];
+                results.forEach(function(item){
+                    if(item.type == "dir"){
+                        nextReturn.push(_getTreeOfGitUrl(item.git_url, { recursive:1 })
+                        .then(function(results){
+                            return results.map(function(t){
+                                t.path = item.path.split('/').pop() + "/" + t.path;
+                                return t;
+                            });
+                        }));
+                    }else if(item.type == "file"){
+                        nextReturn.push(new Promise(function(resolve, reject) {
+                            setTimeout(function() {
+                                progressCallback._len++;
+                                resolve([{url:item.git_url,path:item.path.split('/').pop()}]);
+                            }, 10);
+                        }));
+                    }
+                });
+                return nextReturn;
+            }, function(results){
+                progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
+                throw (JSON.stringify(results));
+            }).then(function(results){
+                Promise.all(results).then(function(res){
+                    var urls = [];
+                    var fetches = [];
+                    res.forEach(function(item){
+                        urls = urls.concat(item);
+                    });
+                    urls.forEach(function(item){
+                        fetches.push(
+                            _getContentOfGitUrl(item.url)
+                            .then(function(content){
+                                var path = item.path;
+                                progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
+                                    ++progressCallback._idx / (progressCallback._len * 2) * 100);
+                                return {path:path, content:content};
+                            })
+                        );
+                    });
+                    return fetches;
+                }).then(function(urls){
+                    Promise.all(urls).then(function(contents){
+                        _zipContents(resolved.path.split('/').pop(), contents, callbackScope);
+                    },function(item){
+                        if(item){
+                            progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
+                            throw (JSON.stringify(item) + " ERROR");
+                        }
+                    });
+                });
             });
         }
     }
