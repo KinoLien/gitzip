@@ -236,7 +236,9 @@
 		</p>
 	</div> -->
 	<script type="text/javascript">
-		var repoExp = new RegExp("^https://github.com/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?");
+		var relatedPath = "/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?";
+		var relatedRepoExp = new RegExp(relatedPath);
+		var repoExp = new RegExp("^https://github.com" + relatedPath);
 
 		var _isProcessing = false;
 
@@ -293,13 +295,6 @@
 				}
 			}
 		};
-
-		var token = window._ghpageAccessToken = _getCookie(ACCESS_TOKEN_COOKIE_NAME);
-		if(token){
-			$('#tokenInput').val(token);
-			GitZip.setAccessToken(token);
-			_setCookie(ACCESS_TOKEN_COOKIE_NAME, token, 100);
-		}
 
 		GitZip.registerCallback(function(status, message, percent){
 			if(status == 'error' || status == 'done'){
@@ -524,6 +519,36 @@
 				e.preventDefault();
 				$('#tokenTaking').trigger('click');
 			});
+
+			var params = {};
+			if(location.search){
+				var strQuery = location.search.substring(1);
+	  			strQuery.split('&').map(function(item){var pair = item.split('='); params[pair[0]] = pair[1]; });
+			}
+
+			var token_cookie = _getCookie(ACCESS_TOKEN_COOKIE_NAME);
+			var token_param = params['token'] || "";
+			if(token_cookie){
+				$('#tokenInput').val(token_cookie);
+				_setCookie(ACCESS_TOKEN_COOKIE_NAME, token_cookie, 100);
+			}
+			window._ghpageAccessToken = token_param || token_cookie;
+			GitZip.setAccessToken(window._ghpageAccessToken);
+
+			if(params['download']){
+  				var url = decodeURIComponent(params['download']);
+  				if(repoExp.test(url)){
+  					$("#urlInput").val(url);
+  					$("#urlDownload").trigger('click');
+  				}else{
+  					if(url[0] != "/") url = "/" + url;
+  					if(relatedRepoExp.test(url)){
+  						url = "https://github.com" + url;
+  						$("#urlInput").val(url);
+  						$("#urlDownload").trigger('click');
+  					}
+  				}
+  			}
 		});
 
 	</script>
