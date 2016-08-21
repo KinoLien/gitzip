@@ -526,6 +526,7 @@
 	  			strQuery.split('&').map(function(item){var pair = item.split('='); params[pair[0]] = pair[1]; });
 			}
 
+			// token priority
 			var token_cookie = _getCookie(ACCESS_TOKEN_COOKIE_NAME);
 			var token_param = params['token'] || "";
 			if(token_cookie){
@@ -535,6 +536,7 @@
 			window._ghpageAccessToken = token_param || token_cookie;
 			GitZip.setAccessToken(window._ghpageAccessToken);
 
+			// handle download parameter
 			if(params['download']){
   				var url = decodeURIComponent(params['download']);
   				if(repoExp.test(url)){
