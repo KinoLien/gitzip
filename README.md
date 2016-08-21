@@ -2,6 +2,10 @@
 
 [demo site](https://kinolien.github.com/gitzip)
 
+[demo site: Usage of download link via Parameters](https://github.com/KinoLien/gitzip/blob/gh-pages/README.md)
+
+[demo site: Get access token steps](https://github.com/KinoLien/gitzip/blob/gh-pages/get-token-step.md)
+
 ## Description
 
 It can make sub-folder/sub-directory of github repository as zip and download it.
