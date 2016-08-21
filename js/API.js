@@ -270,13 +270,66 @@
             if(resolved.branch) params["ref"] = resolved.branch;
             if(token) params["access_token"] = token;            
 
+            // get up level url
+            var originResolved = resolved;
+            var originInput = resolved.inputUrl;
+            if(resolved.type == "tree"){
+                var news = originInput.split('/');
+                news.pop();
+                resolved = resolveUrl(news.join('/'));
+            }
+
             Promise.resolve(
                 $.ajax({
                     url: "https://api.github.com/repos/"+ resolved.author +
                         "/" + resolved.project + "/contents/" + resolved.path,
                     data: params
                 })
-            ).then(function(results){
+            ).then(function(results) {
+                var templateText = '';
+                if(!Array.isArray(results)){
+                    if(results.message){
+                        progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
+                        throw ("Error: " +  results.message);
+                    }else downloadZip(results.download_url, callbackScope);
+                    return;
+                }
+                var urlHasFound = false;
+                for(var i = 0, len = results.length; i < len; i++){
+                    var item = results[i];
+                    // target has found
+                    if(item.type == "dir" && item.html_url == originInput){
+                        var valueText = item.path;
+                        var pathText = valueText.split('/').pop();
+                        var urlText = item.git_url;
+                        urlHasFound = true;
+                        zipIt(pathText, urlText, callbackScope);
+                        break;
+                    }
+                    if(i + 1 == len){
+                        progressCallback.call(callbackScope, 'error', 'File/Dir content not found.');
+                    }
+                }
+                if(urlHasFound){
+                    // do not go to "then"
+                    return Promise.reject();
+                }else{
+                    // maybe a large directory, and go to next to find path
+                    resolved = originResolved;
+                    return Promise.resolve();
+                }
+            }, function(results){
+                progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
+                throw (JSON.stringify(results));
+            }).then(function(){
+                return Promise.resolve(
+                    $.ajax({
+                        url: "https://api.github.com/repos/"+ resolved.author +
+                            "/" + resolved.project + "/contents/" + resolved.path,
+                        data: params
+                    })
+                );
+            }).then(function(results){
                 var templateText = '';
                 if(!Array.isArray(results)){
                     // means file
