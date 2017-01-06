@@ -534,23 +534,28 @@
 				_setCookie(ACCESS_TOKEN_COOKIE_NAME, token_cookie, 100);
 			}
 			window._ghpageAccessToken = token_param || token_cookie;
-			GitZip.setAccessToken(window._ghpageAccessToken);
+			if(window._ghpageAccessToken){
+				GitZip.setAccessToken(window._ghpageAccessToken);
+				// handle download parameter
+				if(params['download']){
+	  				var url = decodeURIComponent(params['download']);
+	  				if(repoExp.test(url)){
+	  					$("#urlInput").val(url);
+	  					$("#urlDownload").trigger('click');
+	  				}else{
+	  					if(url[0] != "/") url = "/" + url;
+	  					if(relatedRepoExp.test(url)){
+	  						url = "https://github.com" + url;
+	  						$("#urlInput").val(url);
+	  						$("#urlDownload").trigger('click');
+	  					}
+	  				}
+	  			}
+			}else{
+				dialogAlert("We recommended to get the token first and then do your actions.", "Warning");
+				$('#tokenTaking').trigger('click');
+			}
 
-			// handle download parameter
-			if(params['download']){
-  				var url = decodeURIComponent(params['download']);
-  				if(repoExp.test(url)){
-  					$("#urlInput").val(url);
-  					$("#urlDownload").trigger('click');
-  				}else{
-  					if(url[0] != "/") url = "/" + url;
-  					if(relatedRepoExp.test(url)){
-  						url = "https://github.com" + url;
-  						$("#urlInput").val(url);
-  						$("#urlDownload").trigger('click');
-  					}
-  				}
-  			}
 		});
 
 	</script>
