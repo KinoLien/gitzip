@@ -511,7 +511,7 @@
 			$('#tokenTaking').on('click', function(){
 				if( $('#tokenTakingPanel').attr('aria-expanded') == "true" ){
 					var token = $('#tokenInput').val();
-					_setCookie(ACCESS_TOKEN_COOKIE_NAME, token, 100);
+					_setCookie(ACCESS_TOKEN_COOKIE_NAME, token, 365);
 					GitZip.setAccessToken(token);
 					window._ghpageAccessToken = token;
 				}
@@ -532,7 +532,7 @@
 			var token_param = params['token'] || "";
 			if(token_cookie){
 				$('#tokenInput').val(token_cookie);
-				_setCookie(ACCESS_TOKEN_COOKIE_NAME, token_cookie, 100);
+				_setCookie(ACCESS_TOKEN_COOKIE_NAME, token_cookie, 365);
 			}
 			window._ghpageAccessToken = token_param || token_cookie;
 			if(window._ghpageAccessToken){
