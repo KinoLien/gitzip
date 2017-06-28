@@ -212,6 +212,12 @@
 		</div>
 	</div>
 
+	<div id="extensionMessage" class="container" style="display: none;">
+		<div class="alert alert-success alert-dismissable">
+		  <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+		  <a href="https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn" target="_blank"><strong>GitZip for github</strong></a> Chrome extension now available!
+		</div>
+	</div>
 	<div id="pathContainer" class="container" style="display:none;">
 		<p class="lead">Path: <span id="pathLead"></span></p>
 	</div>
@@ -557,6 +563,12 @@
 				$('#tokenTaking').trigger('click');
 			}
 
+			var hasShowMessage = _getCookie("_gitzip_ext_has_show");
+			if(!hasShowMessage){
+				$("#extensionMessage").show();	
+				_setCookie("_gitzip_ext_has_show", "yes", 365);
+			}
+			
 		});
 
 	</script>
