@@ -563,10 +563,13 @@
 				$('#tokenTaking').trigger('click');
 			}
 
-			var hasShowMessage = _getCookie("_gitzip_ext_has_show");
-			if(!hasShowMessage){
-				$("#extensionMessage").show();	
-				_setCookie("_gitzip_ext_has_show", "yes", 365);
+			// detect is chrome 
+			if(/Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)){
+				var hasShowMessage = _getCookie("_gitzip_ext_has_show");
+				if(!hasShowMessage){
+					$("#extensionMessage").show();	
+					_setCookie("_gitzip_ext_has_show", "yes", 365);
+				}
 			}
 			
 		});
