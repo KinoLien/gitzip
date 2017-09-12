@@ -360,25 +360,6 @@
 			return res;
 		};
 
-		var resolveUrl = function(repoUrl){
-			if(typeof repoUrl != 'string') return;
-			var matches = repoUrl.match(repoExp);
-			if(matches && matches.length > 0){
-				var root = (matches[5])? 
-					"https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + matches[5] :
-					repoUrl;
-				return {
-					author: matches[1],
-					project: matches[2],
-					branch: matches[5],
-					type: matches[4],
-					path: matches[7] || '',
-					inputUrl: repoUrl,
-					rootUrl: root
-				};
-			}
-		};
-
 		var dialogAlert = function(msg, title){
 			title = title || "";
 			msg = msg || "";
@@ -406,96 +387,97 @@
 
 			// https://github.com/motephyr/font_20140714
 			// https://api.github.com/repos/fatcloud/PyCV-time/contents/
-			var resolved = resolveUrl(repoUrl);
-			if(!resolved){
-				// invalid url
-				dialogAlert("URL is invalid.", "ERROR");
-				return;
-			}
 			if(load_module.isLoading) return;
 			load_module.loading(this);
-			// var contentBaseUrl = ["https://raw.githubusercontent.com", 
-			// 	resolved.author, resolved.project, resolved.branch || ""].join("/");
-			var ps = [];
-			if(resolved.branch) ps.push("ref=" + resolved.branch);
-			if(window._ghpageAccessToken) ps.push("access_token=" + window._ghpageAccessToken);
-			$.ajax({
-			    url: "https://api.github.com/repos/"+ resolved.author + 
-			    	"/" + resolved.project + "/contents/" + resolved.path + 
-			    	((ps.length > 0)? ("?" + ps.join('&')) : ""),
-			    success: function(results) {
-			    	var templateText = '';
-			    	if(!Array.isArray(results)){
-			    		if(results.message) dialogAlert(results.message, "ERROR"); 
-			    		else{
-			    			var btn = document.getElementById('urlDownload');
-			    			btn.setAttribute('git-url', results.download_url);
-			    			getFileButtonClick(btn);
-			    		};
-			    		return;
-			    	}
-			    	results.sort(function(a,b){
-			    		if(a.type == 'file' && !a.size) return -1;
-			    		if(b.type == 'file' && !b.size) return 1;
-			    		if(a.type == b.type){
-			    			if(a.path < b.path) return -1;
-			    			else if(a.path > b.path) return 1;
-			    			else return 0;
-			    		}else{
-			    			if(a.type == "dir") return -1;
-			    			else return 1;
-			    		}
-			    	});
-			        for(var i = 0, len = results.length; i < len; i++){
-			            var item = results[i],
-			            	valueText = item.path,
-			            	pathText = valueText.split('/').pop(),
-			            	urlText = item.git_url,
-			            	onclickHTML = "", externalLink = false,
-			            	icon, downText, getMethod;
-			            if(item.type == "dir"){
-							icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
-							downText = "Download Zip File";
-							getMethod = "zipItButtonClick";
-							onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
-								item.html_url + '">' + pathText + '</a>';
-								// resolved.rootUrl + "/" + valueText
-			            }else if(item.type == "symlink"){
-			            	// symlink
-			            	externalLink = true;
-			            	icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
-			            	onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
-			            }else{
-			            	if(item.size){
-			            		icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
-								downText = "Get File";
-								getMethod = "getFileButtonClick";
-								onclickHTML = pathText;
-								urlText = item.download_url;
-			            	}else{
-			            		externalLink = true;
-			            		icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
-			            		onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
-			            	}
-			            }
-			            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
-		  					'<td>' + (externalLink? "" : 
-		  						('<button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
-		  						'git-url="' + urlText + '" git-type="cell" onclick="'
-		  						+ getMethod + '(this);">' + 
-								'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
-								+ downText + '</button>')) + '</td><td>' +
-		  						'<div class="loading"><span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span> Loading...</div>'
-								+ '</td></tr>';
-			        }
-			        $('#results').html(templateText);
-			        showResults(resolved);
-			        load_module.loaded();
-			    },
-			    error:function(results){
-			    	putLogs(JSON.stringify(results));
-			    	load_module.loaded();
-			    }
+
+			GitZip.urlResolver.check(repoUrl)
+			.then(function(resolved){
+				var ps = [];
+				if(resolved.branch) ps.push("ref=" + resolved.branch);
+				if(window._ghpageAccessToken) ps.push("access_token=" + window._ghpageAccessToken);
+				$.ajax({
+				    url: "https://api.github.com/repos/"+ resolved.author + 
+				    	"/" + resolved.project + "/contents/" + resolved.path + 
+				    	((ps.length > 0)? ("?" + ps.join('&')) : ""),
+				    success: function(results) {
+				    	var templateText = '';
+				    	if(!Array.isArray(results)){
+				    		if(results.message) dialogAlert(results.message, "ERROR"); 
+				    		else{
+				    			var btn = document.getElementById('urlDownload');
+				    			btn.setAttribute('git-url', results.download_url);
+				    			getFileButtonClick(btn);
+				    		};
+				    		return;
+				    	}
+				    	results.sort(function(a,b){
+				    		if(a.type == 'file' && !a.size) return -1;
+				    		if(b.type == 'file' && !b.size) return 1;
+				    		if(a.type == b.type){
+				    			if(a.path < b.path) return -1;
+				    			else if(a.path > b.path) return 1;
+				    			else return 0;
+				    		}else{
+				    			if(a.type == "dir") return -1;
+				    			else return 1;
+				    		}
+				    	});
+				        for(var i = 0, len = results.length; i < len; i++){
+				            var item = results[i],
+				            	valueText = item.path,
+				            	pathText = valueText.split('/').pop(),
+				            	urlText = item.git_url,
+				            	onclickHTML = "", externalLink = false,
+				            	icon, downText, getMethod;
+				            if(item.type == "dir"){
+								icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
+								downText = "Download Zip File";
+								getMethod = "zipItButtonClick";
+								onclickHTML = '<a href="#" onclick="changeDirectoryClick(this);" value="' + 
+									item.html_url + '">' + pathText + '</a>';
+									// resolved.rootUrl + "/" + valueText
+				            }else if(item.type == "symlink"){
+				            	// symlink
+				            	externalLink = true;
+				            	icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
+				            	onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
+				            }else{
+				            	if(item.size){
+				            		icon = '<span class="glyphicon glyphicon-file" aria-hidden="true"></span>';
+									downText = "Get File";
+									getMethod = "getFileButtonClick";
+									onclickHTML = pathText;
+									urlText = item.download_url;
+				            	}else{
+				            		externalLink = true;
+				            		icon = '<span class="glyphicon glyphicon-link" aria-hidden="true"></span>';
+				            		onclickHTML = '<a href="' + item.html_url + '" target="_blank">' + pathText + '</a>';
+				            	}
+				            }
+				            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
+			  					'<td>' + (externalLink? "" : 
+			  						('<button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
+			  						'git-url="' + urlText + '" git-type="cell" onclick="'
+			  						+ getMethod + '(this);">' + 
+									'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
+									+ downText + '</button>')) + '</td><td>' +
+			  						'<div class="loading"><span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span> Loading...</div>'
+									+ '</td></tr>';
+				        }
+				        $('#results').html(templateText);
+				        showResults(resolved);
+				        load_module.loaded();
+				    },
+				    error:function(results){
+				    	putLogs(JSON.stringify(results));
+				    	load_module.loaded();
+				    }
+				});
+			})
+			.catch(function(){
+				// invalid url
+				load_module.loaded();
+				dialogAlert("URL is invalid.", "ERROR");
 			});
 		};
 

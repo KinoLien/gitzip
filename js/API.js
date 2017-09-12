@@ -35,6 +35,190 @@
      */
     var progressCallback = function(status, message, percent){};
 
+    var resolveUrl = function(repoUrl){
+        if(typeof repoUrl != 'string') return;
+        var matches = repoUrl.match(repoExp);
+        if(matches && matches.length > 0){
+            var root = (matches[5])? 
+                "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + matches[5] :
+                repoUrl;
+            return {
+                author: matches[1],
+                project: matches[2],
+                branch: matches[5] || 'master',
+                type: matches[4] || '',
+                path: matches[7] || '',
+                inputUrl: repoUrl,
+                rootUrl: root
+            };
+        }
+    };
+
+    var _githubUrlChecker = {
+        _workerBlobUrl: null,
+        _branchChecker: function(baseUrl, branch, path){
+            
+            if(!this._workerBlobUrl){
+                this._workerBlobUrl = URL.createObjectURL( new Blob([ '(',
+                    function(){
+                        //Long-running work here
+                        function makeRequest (opts) {
+                            var xhr = new XMLHttpRequest();
+                            var params = opts.params, strParams;
+                            if (params && typeof params === 'object') {
+                                strParams = Object.keys(params).map(function (key) {
+                                    return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+                                }).join('&');
+                            }
+                            xhr.open(opts.method || 'GET', opts.url + "?" + strParams, false);
+                            if (opts.headers) {
+                                Object.keys(opts.headers).forEach(function (key) {
+                                    xhr.setRequestHeader(key, opts.headers[key]);
+                                });
+                            }
+                            xhr.send();
+                            if(xhr.status == 200) return xhr.response;
+                            return { status: xhr.status, statusText: xhr.statusText };
+                        }
+                        onmessage = function(e){
+                            // e.data
+                            var inputData = e.data;
+                            
+                            var toBreak = false;
+                            var branchTry = inputData.branchTry,
+                                pathTry = inputData.pathTry,
+                                params = inputData.params,
+                                pathTryQueue = pathTry.split('/');   // case: ["2.1", "Examples", "Evaluation", "UWPImageRecognition", "ImageRecognizerLib"]
+
+                            if(pathTryQueue[pathTryQueue.length-1] == "") pathTryQueue.pop();
+                            var results = {};
+                            while(!toBreak){ // case: release, release/2.1
+                                params["ref"] = branchTry;
+                                
+                                var res = makeRequest({
+                                    url: inputData.baseUrl + pathTry,
+                                    params: params
+                                });
+
+                                if(res.status){
+                                    if(pathTryQueue.length){
+                                        branchTry += "/" + pathTryQueue.shift();
+                                        pathTry = pathTryQueue.join('/');
+                                        // case: 2.1/Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib, Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib
+                                    }else toBreak = true;
+                                }else{
+                                    results.branch = branchTry;
+                                    results.path = pathTry;
+                                    toBreak = true;
+                                }
+                            }
+                            if(results.branch) postMessage(results);
+                            else postMessage(null);
+                            close();
+                        };
+                    }.toString(),
+                ')()' ], { type: 'application/javascript' } ) );
+            }
+            
+            var checkWorker = new Worker( this._workerBlobUrl );
+            
+            if(path && path[path.length-1] == "/") path = path.substring(0, path.length - 1);
+            // pass parameter to worker
+            checkWorker.postMessage({
+                baseUrl: baseUrl,
+                branchTry: branch,
+                pathTry: path || "",
+                params: token? { "access_token" : token } : {}
+            });
+
+            return new Promise(function(resolve, reject){
+                checkWorker.onmessage = function(e){
+                    // e.data
+                    if(e.data && typeof e.data == "object") resolve(e.data);
+                    else reject(e.data);
+                };
+            });
+        },
+        caches: [],
+        /**
+         * Resolve the github repo url for recognize author, project name, branch name, and so on.
+         * @private
+         * @param {string} repoUrl - The github repo url.
+         * @return {Promise<ResolvedURL>}
+         */
+        check: function(repoUrl){
+            // test case: https://github.com/Microsoft/CNTK/tree/release/2.1/Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib
+            if(typeof repoUrl != 'string') return Promise.reject();
+
+            var self = this,
+                results = {};
+
+            if(repoUrl[repoUrl.length-1] == "/") repoUrl = repoUrl.substring(0, repoUrl.length - 1);
+            
+            if(!window.Worker){
+                results = resolveUrl(repoUrl);
+                if(results) return Promise.resolve(results);
+                else return Promise.reject();
+            }
+
+            results.inputUrl = repoUrl;
+            // load from cache
+            if(self.caches.length > 0){
+                for(var i = 0, len = self.caches.length; i < len; i++){
+                    var item = self.caches[i];
+                    // https://github.com/Microsoft/CNTK/(tree|blob)/release/2.1(/.*)?
+                    var patternExp = new RegExp("^" + item.pattern);
+                    var matches = repoUrl.match(patternExp);
+                    if(matches && matches.length > 0){
+                        results.author = item.author;
+                        results.project = item.project;
+                        results.branch = item.branch || "master";
+                        results.type = matches[1] || "";
+                        results.path = matches[3] || "";
+                        results.inputUrl = repoUrl;
+                        results.rootUrl = item.rootUrl;
+                        return Promise.resolve(results);
+                    }
+                }
+            }
+
+            var matches = repoUrl.match(repoExp);
+            if(matches && matches.length > 0){
+                results.author = matches[1];    // case: Microsoft
+                results.project = matches[2];   // case: CNTK
+                results.branch = results.path = results.rootUrl = "";
+                if(matches[4]){ // case: tree
+                    
+                    results.type = matches[4];
+
+                    return new Promise(function(resolve, reject){
+                        self._branchChecker("https://api.github.com/repos/"+ results.author + "/" + results.project + "/contents/", matches[5], matches[7])
+                        .then(function(res){
+                            var rootUrl = "https://github.com/" + results.author + "/" + results.project + "/tree/" + res.branch;
+                            self.caches.push({
+                                author: results.author,
+                                project: results.project,
+                                branch: res.branch,
+                                pattern: "https://github.com/" + results.author + "/" + results.project + "/(tree|blob)/" + res.branch + "(/(.*))?",
+                                rootUrl: rootUrl
+                            });
+                            results.branch = res.branch;
+                            results.path = res.path;
+                            results.rootUrl = rootUrl;
+                            resolve(results);
+                        })
+                        .catch(function(msg){ reject(msg); });
+                    });
+                }else{
+                    results.rootUrl = "https://github.com/" + results.author + "/" + results.project;
+                    return Promise.resolve(results);
+                }
+            }
+            return Promise.reject();
+        }
+    }
+
+
     var _getContentOfGitUrl = function(url, params){
         params = params || {};
         if(token) params["access_token"] = token;
@@ -93,31 +277,6 @@
         }
         progressCallback.call(callbackScope, 'done', 'Saving ' + filename + '.zip');
     };
-
-    /**
-     * Resolve the github repo url for recognize author, project name, branch name, and so on.
-     * @private
-     * @param {string} repoUrl - The github repo url.
-     * @param {ResolvedURL}
-     */
-    function resolveUrl(repoUrl){
-        if(typeof repoUrl != 'string') return;
-        var matches = repoUrl.match(repoExp);
-        if(matches && matches.length > 0){
-            var root = (matches[5])?
-                "https://github.com/" + matches[1] + "/" + matches[2] + "/tree/" + matches[5] :
-                repoUrl;
-            return {
-                author: matches[1],
-                project: matches[2],
-                branch: matches[5],
-                type: matches[4],
-                path: matches[7] || '',
-                inputUrl: repoUrl,
-                rootUrl: root
-            };
-        }
-    }
 
     /**
      * Force to trigger download dialog for any mine-type files using Native A Element.
@@ -249,153 +408,156 @@
         if(isBusy) throw "GitZip is busy...";
         callbackScope = callbackScope || scope;
         progressCallback.call(callbackScope, 'prepare', 'Resolving URL');
-        var resolved = resolveUrl(pathToFolder);
-        if(!resolved){
-            progressCallback.call(callbackScope, 'error', 'Invalid URL: value is [' + pathToFolder.toString() + ']');
-            throw "INVALID URL";
-        }
-        if(!resolved.path){
-            // root
-            var durl = [
-                "https://github.com", resolved.author, resolved.project,
-                "archive", (resolved.branch || 'master')
-            ].join('/');
-            var gitURL = durl + ".zip";
-            // downloadZip(gitURL, callbackScope);
-            downloadZipUseElement(gitURL, callbackScope);
-        } else{
+        _githubUrlChecker.check(pathToFolder)
+        .then(function(resolved){
+            if(!resolved.path){
+                // root
+                var durl = [
+                    "https://github.com", resolved.author, resolved.project,
+                    "archive", (resolved.branch || 'master')
+                ].join('/');
+                var gitURL = durl + ".zip";
+                // downloadZip(gitURL, callbackScope);
+                downloadZipUseElement(gitURL, callbackScope);
+            } else{
 
-            progressCallback.call(callbackScope, 'prepare', 'Finding file/dir content path from resolved URL');
-            var params = {};
-            if(resolved.branch) params["ref"] = resolved.branch;
-            if(token) params["access_token"] = token;            
+                progressCallback.call(callbackScope, 'prepare', 'Finding file/dir content path from resolved URL');
+                var params = {};
+                if(resolved.branch) params["ref"] = resolved.branch;
+                if(token) params["access_token"] = token;            
 
-            // get up level url
-            var originResolved = resolved;
-            var originInput = resolved.inputUrl;
-            if(resolved.type == "tree"){
-                var news = originInput.split('/');
-                news.pop();
-                resolved = resolveUrl(news.join('/'));
-            }
+                // get up level url
+                var originPath = resolved.path;
+                var originInput = resolved.inputUrl;
+                if(resolved.type == "tree"){
+                    var tmp;
+                    (tmp = originInput.split('/')) && tmp.pop() && (resolved.inputUrl = tmp.join('/'));
+                    (tmp = originPath.split('/')) && tmp.pop() && (resolved.path = tmp.join('/'));
+                }
 
-            Promise.resolve(
-                $.ajax({
-                    url: "https://api.github.com/repos/"+ resolved.author +
-                        "/" + resolved.project + "/contents/" + resolved.path,
-                    data: params
-                })
-            ).then(function(results) {
-                var templateText = '';
-                if(!Array.isArray(results)){
-                    if(results.message){
-                        progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
-                        throw ("Error: " +  results.message);
-                    }else downloadZip(results.download_url, callbackScope);
-                    return;
-                }
-                var urlHasFound = false;
-                for(var i = 0, len = results.length; i < len; i++){
-                    var item = results[i];
-                    // target has found
-                    if(item.type == "dir" && item.html_url == originInput){
-                        var valueText = item.path;
-                        var pathText = valueText.split('/').pop();
-                        var urlText = item.git_url;
-                        urlHasFound = true;
-                        zipIt(pathText, urlText, callbackScope);
-                        break;
-                    }
-                    if(i + 1 == len){
-                        progressCallback.call(callbackScope, 'error', 'File/Dir content not found.');
-                    }
-                }
-                if(urlHasFound){
-                    // do not go to "then"
-                    return Promise.reject();
-                }else{
-                    // maybe a large directory, and go to next to find path
-                    resolved = originResolved;
-                    return Promise.resolve();
-                }
-            }, function(results){
-                progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
-                throw (JSON.stringify(results));
-            }).then(function(){
-                return Promise.resolve(
+                Promise.resolve(
                     $.ajax({
                         url: "https://api.github.com/repos/"+ resolved.author +
                             "/" + resolved.project + "/contents/" + resolved.path,
                         data: params
                     })
-                );
-            }).then(function(results){
-                var templateText = '';
-                if(!Array.isArray(results)){
-                    // means file
-                    if(results.message){
-                        progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
-                        throw ("Error: " +  results.message);
-                    }else downloadZip(results.download_url, callbackScope);
-                    return;
-                }
-                progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
-                progressCallback._idx = 0;
-                progressCallback._len = 0;
-                var nextReturn = [];
-                results.forEach(function(item){
-                    if(item.type == "dir"){
-                        nextReturn.push(_getTreeOfGitUrl(item.git_url, { recursive:1 })
-                        .then(function(results){
-                            return results.map(function(t){
-                                t.path = item.path.split('/').pop() + "/" + t.path;
-                                return t;
-                            });
-                        }));
-                    }else if(item.type == "file"){
-                        nextReturn.push(new Promise(function(resolve, reject) {
-                            setTimeout(function() {
-                                progressCallback._len++;
-                                resolve([{url:item.git_url,path:item.path.split('/').pop()}]);
-                            }, 10);
-                        }));
+                ).then(function(results) {
+                    var templateText = '';
+                    if(!Array.isArray(results)){
+                        if(results.message){
+                            progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
+                            throw ("Error: " +  results.message);
+                        }else downloadZip(results.download_url, callbackScope);
+                        return;
                     }
-                });
-                return nextReturn;
-            }, function(results){
-                progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
-                throw (JSON.stringify(results));
-            }).then(function(results){
-                Promise.all(results).then(function(res){
-                    var urls = [];
-                    var fetches = [];
-                    res.forEach(function(item){
-                        urls = urls.concat(item);
-                    });
-                    urls.forEach(function(item){
-                        fetches.push(
-                            _getContentOfGitUrl(item.url)
-                            .then(function(content){
-                                var path = item.path;
-                                progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
-                                    ++progressCallback._idx / (progressCallback._len * 2) * 100);
-                                return {path:path, content:content};
-                            })
-                        );
-                    });
-                    return fetches;
-                }).then(function(urls){
-                    Promise.all(urls).then(function(contents){
-                        _zipContents(resolved.path.split('/').pop(), contents, callbackScope);
-                    },function(item){
-                        if(item){
-                            progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
-                            throw (JSON.stringify(item) + " ERROR");
+                    var urlHasFound = false;
+                    for(var i = 0, len = results.length; i < len; i++){
+                        var item = results[i];
+                        // target has found
+                        if(item.type == "dir" && item.html_url == originInput){
+                            var valueText = item.path;
+                            var pathText = valueText.split('/').pop();
+                            var urlText = item.git_url;
+                            urlHasFound = true;
+                            zipIt(pathText, urlText, callbackScope);
+                            break;
+                        }
+                        if(i + 1 == len){
+                            progressCallback.call(callbackScope, 'error', 'File/Dir content not found.');
+                        }
+                    }
+                    if(urlHasFound){
+                        // do not go to "then"
+                        return Promise.reject();
+                    }else{
+                        // maybe a large directory, and go to next to find path
+                        resolved.path = originPath;
+                        resolved.inputUrl = originInput;
+                        return Promise.resolve();
+                    }
+                }, function(results){
+                    progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
+                    throw (JSON.stringify(results));
+                }).then(function(){
+                    return Promise.resolve(
+                        $.ajax({
+                            url: "https://api.github.com/repos/"+ resolved.author +
+                                "/" + resolved.project + "/contents/" + resolved.path,
+                            data: params
+                        })
+                    );
+                }).then(function(results){
+                    var templateText = '';
+                    if(!Array.isArray(results)){
+                        // means file
+                        if(results.message){
+                            progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
+                            throw ("Error: " +  results.message);
+                        }else downloadZip(results.download_url, callbackScope);
+                        return;
+                    }
+                    progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
+                    progressCallback._idx = 0;
+                    progressCallback._len = 0;
+                    var nextReturn = [];
+                    results.forEach(function(item){
+                        if(item.type == "dir"){
+                            nextReturn.push(_getTreeOfGitUrl(item.git_url, { recursive:1 })
+                            .then(function(results){
+                                return results.map(function(t){
+                                    t.path = item.path.split('/').pop() + "/" + t.path;
+                                    return t;
+                                });
+                            }));
+                        }else if(item.type == "file"){
+                            nextReturn.push(new Promise(function(resolve, reject) {
+                                setTimeout(function() {
+                                    progressCallback._len++;
+                                    resolve([{url:item.git_url,path:item.path.split('/').pop()}]);
+                                }, 10);
+                            }));
                         }
                     });
+                    return nextReturn;
+                }, function(results){
+                    progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
+                    throw (JSON.stringify(results));
+                }).then(function(results){
+                    Promise.all(results).then(function(res){
+                        var urls = [];
+                        var fetches = [];
+                        res.forEach(function(item){
+                            urls = urls.concat(item);
+                        });
+                        urls.forEach(function(item){
+                            fetches.push(
+                                _getContentOfGitUrl(item.url)
+                                .then(function(content){
+                                    var path = item.path;
+                                    progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
+                                        ++progressCallback._idx / (progressCallback._len * 2) * 100);
+                                    return {path:path, content:content};
+                                })
+                            );
+                        });
+                        return fetches;
+                    }).then(function(urls){
+                        Promise.all(urls).then(function(contents){
+                            _zipContents(resolved.path.split('/').pop(), contents, callbackScope);
+                        },function(item){
+                            if(item){
+                                progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
+                                throw (JSON.stringify(item) + " ERROR");
+                            }
+                        });
+                    });
                 });
-            });
-        }
+            }
+        })
+        .catch(function(){
+            progressCallback.call(callbackScope, 'error', 'Invalid URL: value is [' + pathToFolder.toString() + ']');
+            throw "INVALID URL";
+        });
     }
 
     /**
@@ -421,6 +583,7 @@
     fn.downloadFile = downloadZip;
     fn.registerCallback = registerCallback;
     fn.setAccessToken = setAccessToken;
+    fn.urlResolver = _githubUrlChecker;
 
     scope.GitZip = fn;
 
