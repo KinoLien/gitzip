@@ -311,6 +311,22 @@
 			}
 		});
 
+		var gaWriteEvent = function(inputUrl){
+			// for writing "download" event to ga
+			if(!window.ga) return;
+
+			var matches = inputUrl.match(repoExp);
+			if(matches.length){
+				var authorRepo = matches.slice(1, 3).join("/");
+				ga("send", {
+					hitType: "event",
+					eventCategory: authorRepo,
+					eventAction: "download",
+					eventLabel: authorRepo + (matches[3] || "/")
+				});
+			}
+		};
+
 		var zipItButtonClick = function(o){
 			// o.getAttribute('git-url')
 			// o.getAttribute('git-name')
@@ -319,6 +335,8 @@
 			if(url && !load_module.isLoading){
 				GitZip.zipFromApiUrl(zipName, url, o);
 			}
+
+			gaWriteEvent(o.getAttribute('git-origin'));
 		};
 		var getFileButtonClick = function(o){
 			// o.getAttribute('git-url')
@@ -327,6 +345,8 @@
 			if(url && !load_module.isLoading){
 				GitZip.downloadFile(url, o);
 			}
+
+			gaWriteEvent(o.getAttribute('git-origin'));
 		};
 
 		var filetrees = [];
@@ -428,6 +448,7 @@
 				            	pathText = valueText.split('/').pop(),
 				            	urlText = item.git_url,
 				            	onclickHTML = "", externalLink = false,
+				            	originUrl = item.html_url,
 				            	icon, downText, getMethod;
 				            if(item.type == "dir"){
 								icon = '<span class="glyphicon glyphicon-folder-close" aria-hidden="true"></span>';
@@ -456,7 +477,7 @@
 				            }
 				            templateText += '<tr><td><div class="table-path">' + icon + onclickHTML + '</div></td>' + 
 			  					'<td>' + (externalLink? "" : 
-			  						('<button type="button" class="btn btn-default" git-name="' + pathText + '" ' +
+			  						('<button type="button" class="btn btn-default" git-origin="' + originUrl + '" git-name="' + pathText + '" ' +
 			  						'git-url="' + urlText + '" git-type="cell" onclick="'
 			  						+ getMethod + '(this);">' + 
 									'<span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span> '
@@ -490,7 +511,11 @@
 			var submitHandler = function(e){
 				e.preventDefault();
 
-				GitZip.zipRepo($("#urlInput").val(), document.getElementById('urlDownload'));
+				var inputUrl = $("#urlInput").val();
+				
+				GitZip.zipRepo(inputUrl, document.getElementById('urlDownload'));
+
+				gaWriteEvent(inputUrl);
 			};
 			$(window).on('resize', _onWindowResize);
 			$("#urlForm").on('submit', submitHandler);
