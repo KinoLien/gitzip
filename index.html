@@ -215,7 +215,9 @@
 	<div id="extensionMessage" class="container" style="display: none;">
 		<div class="alert alert-success alert-dismissable">
 		  <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
-		  <a href="https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn" target="_blank"><strong>GitZip for github</strong></a> Chrome extension now available!
+		  <a href="https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn" target="_blank"><strong>GitZip for github 0.2.0</strong></a> Chrome extension now available!
+		  <p>1. An option for get private token.</p>
+      	  <p>2. Fix some errors about double click not work.</p>
 		</div>
 	</div>
 	<div id="pathContainer" class="container" style="display:none;">
@@ -572,10 +574,10 @@
 
 			// detect is chrome 
 			if(/Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)){
-				var hasShowMessage = _getCookie("_gitzip_ext_has_show");
+				var hasShowMessage = _getCookie("_gitzip_ext_0_2_0_has_show");
 				if(!hasShowMessage){
 					$("#extensionMessage").show();	
-					_setCookie("_gitzip_ext_has_show", "yes", 365);
+					_setCookie("_gitzip_ext_0_2_0_has_show", "yes", 365);
 				}
 			}
 			
