@@ -6,6 +6,8 @@
 
 [demo site: Get access token steps](https://github.com/KinoLien/gitzip/blob/gh-pages/get-token-step.md)
 
+Browser Extension: [Chrome Extension](https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn), [Firefox Addon](https://addons.mozilla.org/en-US/firefox/addon/gitzip/)
+
 ## Description
 
 It can make sub-folder/sub-directory of github repository as zip and download it.
