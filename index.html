@@ -206,20 +206,22 @@
 				<input id="tokenInput" type="text" class="form-control" placeholder="Input access token here and press enter">
 				<div class="token-right">
 					&nbsp;&bull;&nbsp;<a href="https://github.com/KinoLien/gitzip/blob/gh-pages/get-token-step.md" target="_blank">See Steps</a>
-					&nbsp;&bull;&nbsp;<a href="https://github.com/login/oauth/authorize?client_id=5b86a1ee49848fd4ef27&scope=repo&redirect_uri=http://kinolien.github.io/gitzip/">Get Token</a>
+					&nbsp;&nbsp;&nbsp;Get Token:
+					<a href="https://github.com/login/oauth/authorize?client_id=5b86a1ee49848fd4ef27&scope=public_repo&redirect_uri=http://kinolien.github.io/gitzip/">Normal</a>&nbsp;/
+					<a href="https://github.com/login/oauth/authorize?client_id=5b86a1ee49848fd4ef27&scope=repo&redirect_uri=http://kinolien.github.io/gitzip/">Private</a>
 				</div>
 			</form>
 		</div>
 	</div>
 
-	<div id="extensionMessage" class="container" style="display: none;">
+	<!-- <div id="extensionMessage" class="container" style="display: none;">
 		<div class="alert alert-success alert-dismissable">
 		  <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
 		  <a href="https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn" target="_blank"><strong>GitZip for github 0.2.0</strong></a> Chrome extension now available!
 		  <p>1. An option for get private token.</p>
       	  <p>2. Fix some errors about double click not work.</p>
 		</div>
-	</div>
+	</div> -->
 	<div id="pathContainer" class="container" style="display:none;">
 		<p class="lead">Path: <span id="pathLead"></span></p>
 	</div>
@@ -573,13 +575,13 @@
 			}
 
 			// detect is chrome 
-			if(/Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)){
-				var hasShowMessage = _getCookie("_gitzip_ext_0_2_0_has_show");
-				if(!hasShowMessage){
-					$("#extensionMessage").show();	
-					_setCookie("_gitzip_ext_0_2_0_has_show", "yes", 365);
-				}
-			}
+			// if(/Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)){
+			// 	var hasShowMessage = _getCookie("_gitzip_ext_0_2_0_has_show");
+			// 	if(!hasShowMessage){
+			// 		$("#extensionMessage").show();	
+			// 		_setCookie("_gitzip_ext_0_2_0_has_show", "yes", 365);
+			// 	}
+			// }
 			
 		});
 
