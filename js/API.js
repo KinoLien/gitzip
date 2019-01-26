@@ -313,7 +313,7 @@ var _global = typeof window === 'object' && window.window === window
      * @param {object|undefined} callbackScope - The scope of the progressCallback function.
      */
     function downloadZip(url, callbackScope){
-        callbackScope = callbackScope || scope;
+        callbackScope = callbackScope || _global;
         if(url){
             progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
             var params = {};
@@ -355,7 +355,7 @@ var _global = typeof window === 'object' && window.window === window
      * @param {object|undefined} callbackScope - The scope of the progressCallback function.
      */
     function zipIt(zipName, url, callbackScope){
-        callbackScope = callbackScope || scope;
+        callbackScope = callbackScope || _global;
         if(url && githubProvidedUrl.test(url)){
             progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
             var params = {};
@@ -415,7 +415,7 @@ var _global = typeof window === 'object' && window.window === window
      */
     function createURL(pathToFolder, callbackScope){
         if(isBusy) throw "GitZip is busy...";
-        callbackScope = callbackScope || scope;
+        callbackScope = callbackScope || _global;
         progressCallback.call(callbackScope, 'prepare', 'Resolving URL');
         _githubUrlChecker.check(pathToFolder)
         .then(function(resolved){
