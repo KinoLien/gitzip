@@ -18,6 +18,7 @@ var _global = typeof window === 'object' && window.window === window
 
     var repoExp = new RegExp("^https://github.com/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?");
     var githubProvidedUrl = new RegExp("^https://api.github.com/.*");
+    var githubDownloadUrl = new RegExp("^https://raw.githubusercontent.com/.*");
     var isBusy = false;
     var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0 && 
         /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
@@ -243,7 +244,8 @@ var _global = typeof window === 'object' && window.window === window
         return uri ? ("?" + uri) : "";
     }
 
-    var _callAjax = function(url, params){
+    // default type is "json"
+    var _callAjax = function(url, params, type){
         return new Promise(function(resolve, reject){
             var xmlhttp;
             // compatible with IE7+, Firefox, Chrome, Opera, Safari
@@ -257,7 +259,7 @@ var _global = typeof window === 'object' && window.window === window
                     }
                 }
             }
-            xmlhttp.responseType = "json";
+            xmlhttp.responseType = (typeof type !== "undefined") ? type : "json";
             xmlhttp.open("GET", url + _getRequestUri(params), true);
             xmlhttp.send();
         });
@@ -270,6 +272,17 @@ var _global = typeof window === 'object' && window.window === window
             var message = (response && response.message) ? response.message : xmlResponse.statusText;
             progressCallback.call(this, 'error', "Error: " + message);
         }
+    };
+
+    var _checkAndGetDownloadURL = function(url){
+        if ( url ) {
+            if ( githubDownloadUrl.test(url) ) return Promise.resolve(url);
+            else return _githubUrlChecker
+                .check(url)
+                .then(function(resolved){
+                    return "https://raw.githubusercontent.com/" + [resolved.author, resolved.project, resolved.branch, resolved.path].join("/");
+                });
+        } else return Promise.reject();
     };
 
     var _getContentOfGitUrl = function(url, params){
@@ -356,8 +369,10 @@ var _global = typeof window === 'object' && window.window === window
         var params = {};
         if(token) params["access_token"] = token;
 
-        // *** TODO: checkAndGetDownloadURL
-        return _callAjax(url, params)
+        return _checkAndGetDownloadURL(url)
+            .then(function(validUrl){
+                return _callAjax(validUrl, params, "text")
+            })
             .then(function(xmlResponse){
                 var data = xmlResponse.response;
                 var contentType = xmlResponse.getResponseHeader('Content-Type');
