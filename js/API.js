@@ -1,4 +1,19 @@
-(function(scope){
+
+// test cases:
+// https://github.com/tazotodua/TP_scripts/tree/master/NT8/D3Spotter/D3SpotterV3B4
+// https://github.com/Microsoft/CNTK/tree/release/2.1/Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib
+// https://github.com/cdnjs/cdnjs/tree/master/ajax/libs/6px
+// https://github.com/cdnjs/cdnjs/tree/master/ajax/libs/mark.js
+
+// The one and only way of getting global scope in all environments
+// https://stackoverflow.com/q/3277182/1008999
+var _global = typeof window === 'object' && window.window === window
+  ? window : typeof self === 'object' && self.self === self
+  ? self : typeof global === 'object' && global.global === global
+  ? global
+  : this;
+
+(function(){
     function fn(){};
 
     var repoExp = new RegExp("^https://github.com/([^/]+)/([^/]+)(/(tree|blob)/([^/]+)(/(.*))?)?");
@@ -8,6 +23,11 @@
         /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
 
     var token;
+
+    var _filterTailSlash = function(str){
+        if ( str.length && str[str.length - 1] == "/" ) return str.substring(0, str.length - 1);
+        return str;
+    };
 
     var statusHandle = function(status){
         if(status == 'error' || status == 'done') isBusy = false;
@@ -31,9 +51,8 @@
      * @callback progressCallback
      * @param {string} status - indicates the status description like 'error', 'prepare', 'processing', 'done'
      * @param {string} message - the messages of the above status.
-     * @param {number} percent - from 0 to 100, indicates the progress percentage.
      */
-    var progressCallback = function(status, message, percent){};
+    var progressCallback = function(status, message){};
 
     var resolveUrl = function(repoUrl){
         if(typeof repoUrl != 'string') return;
@@ -47,7 +66,7 @@
                 project: matches[2],
                 branch: matches[5] || 'master',
                 type: matches[4] || '',
-                path: matches[7] || '',
+                path: _filterTailSlash(matches[7] || ''),
                 inputUrl: repoUrl,
                 rootUrl: root
             };
@@ -147,7 +166,6 @@
          * @return {Promise<ResolvedURL>}
          */
         check: function(repoUrl){
-            // test case: https://github.com/Microsoft/CNTK/tree/release/2.1/Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib
             if(typeof repoUrl != 'string') return Promise.reject();
 
             var self = this,
@@ -203,7 +221,7 @@
                                 rootUrl: rootUrl
                             });
                             results.branch = res.branch;
-                            results.path = res.path;
+                            results.path = _filterTailSlash(res.path);
                             results.rootUrl = rootUrl;
                             resolve(results);
                         })
@@ -218,47 +236,76 @@
         }
     }
 
+    var _getRequestUri = function(param){
+        var uri = Object.keys(param)
+            .map(function(key){ return key + "=" + encodeURIComponent(param[key]); })
+            .join('&');
+        return uri ? ("?" + uri) : "";
+    }
+
+    var _callAjax = function(url, params){
+        return new Promise(function(resolve, reject){
+            var xmlhttp;
+            // compatible with IE7+, Firefox, Chrome, Opera, Safari
+            xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function(){
+                if (xmlhttp.readyState == 4){
+                    if(xmlhttp.status == 200){
+                        resolve(xmlhttp);
+                    }else if(xmlhttp.status >= 400){
+                        reject(xmlhttp);
+                    }
+                }
+            }
+            xmlhttp.responseType = "json";
+            xmlhttp.open("GET", url + _getRequestUri(params), true);
+            xmlhttp.send();
+        });
+    };
+
+    var _handleApiError = function(xmlResponse){
+        if ( xmlResponse ) {
+            var status = xmlResponse.status;
+            var response = xmlResponse.response;
+            var message = (response && response.message) ? response.message : xmlResponse.statusText;
+            progressCallback.call(this, 'error', "Error: " + message);
+        }
+    };
 
     var _getContentOfGitUrl = function(url, params){
         params = params || {};
         if(token) params["access_token"] = token;
-        return Promise.resolve(
-            $.ajax({
-                url: url,
-                data: params
-            })
-        ).then(function(results){ return results.content; });
+        return _callAjax(url, params)
+            .then(function(xmlResponse){ 
+                return xmlResponse.response.content;
+            });
     };
 
     var _getTreeOfGitUrl = function(url, params){
         params = params || {};
         if(token) params["access_token"] = token;
-        return Promise.resolve(
-            $.ajax({
-                url: url,
-                data: params
-            })
-        ).then(function(results){
-            var nextReturn = [];
-            if(results.truncated){
-                progressCallback.call(callbackScope, 'error', 'The tree travels is over than API limitation (500 files)');
-                throw ("The tree travels is over than API limitation (500 files)");
-            };
-            results.tree.forEach(function(item){
-                if(item.type == "blob"){
-                    progressCallback._len++;
-                    nextReturn.push({url: item.url, path: item.path});
-                }
+        params["recursive"] = 1;
+        return _callAjax(url, params)
+            .then(function(xmlResponse){
+                var results = xmlResponse.response;
+                var nextReturn = [];
+                if(results.truncated){
+                    progressCallback.call(callbackScope, 'error', 'The tree travels is over than API limitation (500 files)');
+                    throw ("The tree travels is over than API limitation (500 files)");
+                };
+                results.tree.forEach(function(item){
+                    if(item.type == "blob"){
+                        nextReturn.push({url: item.url, path: item.path});
+                    }
+                });
+                return nextReturn;
             });
-            return nextReturn;
-        });
     };
 
     var _zipContents = function(filename, contents, callbackScope){
         var zip = new JSZip();
         contents.forEach(function(item){
-            progressCallback.call(callbackScope, 'processing', 'Compressing ' + item.path,
-                ++progressCallback._idx / (progressCallback._len * 2) * 100);
+            progressCallback.call(callbackScope, 'processing', 'Compressing ' + item.path);
             zip.file(item.path, item.content, {createFolders:true,base64:true});
         });
         if(isSafari){
@@ -304,39 +351,37 @@
      * @param {object|undefined} callbackScope - The scope of the progressCallback function.
      */
     function downloadZip(url, callbackScope){
-        callbackScope = callbackScope || scope;
-        if(url){
-            progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
-            var params = {};
-            if(token) params["access_token"] = token;
-            $.ajax( { url: url, data: params } )
-                .fail(function(jqXHR, textStatus, errorThrown){
-                  console.error('downloadZip > $.get fail:', textStatus);
-                  if (errorThrown) throw errorThrown;
-                })
+        callbackScope = callbackScope || _global;
+        progressCallback.call(callbackScope, 'processing', 'Fetching target url: ' + url);
+        var params = {};
+        if(token) params["access_token"] = token;
 
-                .done(function(data, textStatus, jqXHR){
-                    var blob = new Blob([data], {
-                        type: jqXHR.getResponseHeader('Content-Type') ||
-                            'application/octet-stream'
-                    });
+        // *** TODO: checkAndGetDownloadURL
+        return _callAjax(url, params)
+            .then(function(xmlResponse){
+                var data = xmlResponse.response;
+                var contentType = xmlResponse.getResponseHeader('Content-Type');
 
-                    var down = document.createElement('a');
-                    down.download = url.substring(url.lastIndexOf('/') + 1);
-                    down.href = URL.createObjectURL(blob);
+                var blob = new Blob([data], {
+                    type: contentType || 'application/octet-stream'
+                });
 
-                    down.addEventListener('click', function(e){
-                        progressCallback.call(callbackScope, 'done', 'Saving File.');
-                    });
+                var down = document.createElement('a');
+                down.download = url.substring(url.lastIndexOf('/') + 1);
+                down.href = URL.createObjectURL(blob);
 
-                    setTimeout(function(){
-                        // link has to be in the page DOM for it to work with Firefox
-                        document.body.appendChild(down);
-                        down.click();
-                        down.parentNode.removeChild(down);
-                    }, 100);
-              });
-        }
+                down.addEventListener('click', function(e){
+                    progressCallback.call(callbackScope, 'done', 'Saving File.');
+                });
+
+                setTimeout(function(){
+                    // link has to be in the page DOM for it to work with Firefox
+                    document.body.appendChild(down);
+                    down.click();
+                    down.parentNode.removeChild(down);
+                }, 100);
+            })
+            .catch(_handleApiError.bind(callbackScope));
     }
 
     /**
@@ -346,27 +391,22 @@
      * @param {object|undefined} callbackScope - The scope of the progressCallback function.
      */
     function zipIt(zipName, url, callbackScope){
-        callbackScope = callbackScope || scope;
+        callbackScope = callbackScope || _global;
         if(url && githubProvidedUrl.test(url)){
             progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
             var params = {};
             if(token) params["access_token"] = token;
             params["recursive"] = 1;
-            $.ajax({
-                url: url,
-                data: params,
-                success: function(results){
+
+            return _callAjax(url, params)
+                .then(function(xmlResponse){
+                    var results = xmlResponse.response;
                     var promises = [];
                     var fileContents = [];
                     if(results.truncated){
                         progressCallback.call(callbackScope, 'error', 'The tree travels is over than API limitation (500 files)');
                         throw ("The tree travels is over than API limitation (500 files)");
                     };
-                    progressCallback._idx = 0;
-                    progressCallback._len = 0;
-                    results.tree.forEach(function(item){
-                        if(item.type == "blob") progressCallback._len++;
-                    });
                     results.tree.forEach(function(item){
                         if(item.type == "blob"){
                             var p = {};
@@ -375,27 +415,17 @@
                                 .then(function(content){
                                     var path = item.path;
                                     fileContents.push({path:path,content:content});
-                                    progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
-                                        ++progressCallback._idx / (progressCallback._len * 2) * 100);
+                                    progressCallback.call(callbackScope, 'processing', 'Fetched ' + path + ' content.');
                                 })
                             );
                         }
                     });
 
-                    Promise.all(promises).then(function() {
+                    return Promise.all(promises).then(function() {
                         _zipContents(zipName, fileContents, callbackScope);
-                    },function(item){
-                        if(item){
-                            progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
-                            throw (JSON.stringify(item) + " ERROR");
-                        }
                     });
-                },
-                error:function(e){
-                    progressCallback.call(callbackScope, 'error', 'Error: ' + e);
-                    throw (e);
-                }
-            });
+                })
+                .catch(_handleApiError.bind(callbackScope));
         }
     }
 
@@ -406,7 +436,7 @@
      */
     function createURL(pathToFolder, callbackScope){
         if(isBusy) throw "GitZip is busy...";
-        callbackScope = callbackScope || scope;
+        callbackScope = callbackScope || _global;
         progressCallback.call(callbackScope, 'prepare', 'Resolving URL');
         _githubUrlChecker.check(pathToFolder)
         .then(function(resolved){
@@ -426,132 +456,61 @@
                 if(resolved.branch) params["ref"] = resolved.branch;
                 if(token) params["access_token"] = token;            
 
-                // get up level url
-                var originPath = resolved.path;
-                var originInput = resolved.inputUrl;
                 if(resolved.type == "tree"){
-                    var tmp;
-                    (tmp = originInput.split('/')) && tmp.pop() && (resolved.inputUrl = tmp.join('/'));
-                    (tmp = originPath.split('/')) && tmp.pop() && (resolved.path = tmp.join('/'));
-                }
+                    // for tree handles
+                    _callAjax("https://api.github.com/repos/" + resolved.author + 
+                        "/" + resolved.project + "/contents/" + resolved.path, params)
+                        .then(function(xmlResponse){
+                            var results = xmlResponse.response;
 
-                Promise.resolve(
-                    $.ajax({
-                        url: "https://api.github.com/repos/"+ resolved.author +
-                            "/" + resolved.project + "/contents/" + resolved.path,
-                        data: params
-                    })
-                ).then(function(results) {
-                    var templateText = '';
-                    if(!Array.isArray(results)){
-                        if(results.message){
-                            progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
-                            throw ("Error: " +  results.message);
-                        }else downloadZip(results.download_url, callbackScope);
-                        return;
-                    }
-                    var urlHasFound = false;
-                    for(var i = 0, len = results.length; i < len; i++){
-                        var item = results[i];
-                        // target has found
-                        if(item.type == "dir" && item.html_url == originInput){
-                            var valueText = item.path;
-                            var pathText = valueText.split('/').pop();
-                            var urlText = item.git_url;
-                            urlHasFound = true;
-                            zipIt(pathText, urlText, callbackScope);
-                            break;
-                        }
-                        if(i + 1 == len){
-                            progressCallback.call(callbackScope, 'error', 'File/Dir content not found.');
-                        }
-                    }
-                    if(urlHasFound){
-                        // do not go to "then"
-                        return Promise.reject();
-                    }else{
-                        // maybe a large directory, and go to next to find path
-                        resolved.path = originPath;
-                        resolved.inputUrl = originInput;
-                        return Promise.resolve();
-                    }
-                }, function(results){
-                    progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
-                    throw (JSON.stringify(results));
-                }).then(function(){
-                    return Promise.resolve(
-                        $.ajax({
-                            url: "https://api.github.com/repos/"+ resolved.author +
-                                "/" + resolved.project + "/contents/" + resolved.path,
-                            data: params
+                            var promises = [];
+                            results.forEach(function(item){
+                                if( item.type == "dir") {
+                                    var currentPath = item.name;
+                                    promises.push(
+                                        _getTreeOfGitUrl(item.git_url)
+                                        .then(function(results){
+                                            // add currentPath
+                                            results.forEach(function(inner){ 
+                                                inner.path = currentPath + "/" + inner.path;
+                                                progressCallback.call(callbackScope, 'processing', 'Path: ' + inner.path + ' found.');
+                                            });
+                                            return results;
+                                        })
+                                    );
+                                } else if ( item.type == "file" ) {
+                                    promises.push(
+                                        Promise.resolve([ { url: item.git_url, path: item.name } ])
+                                    );
+                                    progressCallback.call(callbackScope, 'processing', 'Path: ' + item.name + ' found.');
+                                }
+                            });
+                            return Promise.all(promises);
                         })
-                    );
-                }).then(function(results){
-                    var templateText = '';
-                    if(!Array.isArray(results)){
-                        // means file
-                        if(results.message){
-                            progressCallback.call(callbackScope, 'error', 'Github said: '+results.message);
-                            throw ("Error: " +  results.message);
-                        }else downloadZip(results.download_url, callbackScope);
-                        return;
-                    }
-                    progressCallback.call(callbackScope, 'prepare', 'Fetching list of Dir contains files.');
-                    progressCallback._idx = 0;
-                    progressCallback._len = 0;
-                    var nextReturn = [];
-                    results.forEach(function(item){
-                        if(item.type == "dir"){
-                            nextReturn.push(_getTreeOfGitUrl(item.git_url, { recursive:1 })
-                            .then(function(results){
-                                return results.map(function(t){
-                                    t.path = item.path.split('/').pop() + "/" + t.path;
-                                    return t;
-                                });
-                            }));
-                        }else if(item.type == "file"){
-                            nextReturn.push(new Promise(function(resolve, reject) {
-                                setTimeout(function() {
-                                    progressCallback._len++;
-                                    resolve([{url:item.git_url,path:item.path.split('/').pop()}]);
-                                }, 10);
-                            }));
-                        }
-                    });
-                    return nextReturn;
-                }, function(results){
-                    progressCallback.call(callbackScope, 'error', 'Github said: ' + JSON.stringify(results));
-                    throw (JSON.stringify(results));
-                }).then(function(results){
-                    Promise.all(results).then(function(res){
-                        var urls = [];
-                        var fetches = [];
-                        res.forEach(function(item){
-                            urls = urls.concat(item);
-                        });
-                        urls.forEach(function(item){
-                            fetches.push(
-                                _getContentOfGitUrl(item.url)
-                                .then(function(content){
-                                    var path = item.path;
-                                    progressCallback.call(callbackScope, 'processing', 'Fetched ' + path,
-                                        ++progressCallback._idx / (progressCallback._len * 2) * 100);
-                                    return {path:path, content:content};
-                                })
-                            );
-                        });
-                        return fetches;
-                    }).then(function(urls){
-                        Promise.all(urls).then(function(contents){
+                        .then(function(results){
+                            return results.reduce(function(a, b){ return a.concat(b); }, []);
+                        })
+                        .then(function(urls){
+                            var fetches = urls.map(function(item){
+                                return _getContentOfGitUrl(item.url)
+                                    .then(function(content){
+                                        var path = item.path;
+                                        progressCallback.call(callbackScope, 'processing', 'Fetched ' + path + ' content.');
+                                        return { path: path, content: content };
+                                    });
+                            });
+                            return Promise.all(fetches);
+                        })
+                        .then(function(contents){
                             _zipContents(resolved.path.split('/').pop(), contents, callbackScope);
-                        },function(item){
-                            if(item){
-                                progressCallback.call(callbackScope, 'error', 'Error: ' + JSON.stringify(item));
-                                throw (JSON.stringify(item) + " ERROR");
-                            }
                         });
-                    });
-                });
+                } else {
+                    // for blob
+                    downloadZip(
+                        "https://raw.githubusercontent.com/" + [resolved.author, resolved.project, resolved.branch, resolved.path].join("/"),
+                        callbackScope
+                    );
+                }
             }
         })
         .catch(function(){
@@ -585,6 +544,9 @@
     fn.setAccessToken = setAccessToken;
     fn.urlResolver = _githubUrlChecker;
 
-    scope.GitZip = fn;
+    _global.GitZip = fn.GitZip = fn;
 
-})(window);
+    if (typeof module !== 'undefined') {
+        module.exports = fn;
+    }
+})();
