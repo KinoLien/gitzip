@@ -59,7 +59,7 @@ You can now use the API if you would like to incorporate this into your own webs
 |:---:|:---:|:---|
 |status|string|Indicates the status description like 'error', 'prepare', 'processing', 'done'.|
 |message|string|The messages of the above status.|
-|percent|number|From 0 to 100, indicates the progress percentage.|
+|percent|number|From 0 to 100, indicates the progress percentage. (debugging) |
 
 
 
