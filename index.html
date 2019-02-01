@@ -214,14 +214,9 @@
 		</div>
 	</div>
 
-	<!-- <div id="extensionMessage" class="container" style="display: none;">
-		<div class="alert alert-success alert-dismissable">
-		  <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
-		  <a href="https://chrome.google.com/webstore/detail/gitzip-for-github/ffabmkklhbepgcgfonabamgnfafbdlkn" target="_blank"><strong>GitZip for github 0.2.0</strong></a> Chrome extension now available!
-		  <p>1. An option for get private token.</p>
-      	  <p>2. Fix some errors about double click not work.</p>
-		</div>
-	</div> -->
+	<div id="alertMessage" class="container">
+	</div>
+
 	<div id="pathContainer" class="container" style="display:none;">
 		<p class="lead">Path: <span id="pathLead"></span></p>
 	</div>
@@ -236,8 +231,6 @@
   			<tbody id="results">
   			</tbody>
 		</table>
-		
-		<div id="logRegion"></div>
 	</div>
 
 	<!-- <div class="loading">
@@ -307,9 +300,10 @@
 			}
 		};
 
-		GitZip.registerCallback(function(status, message, percent){
+		GitZip.registerCallback(function(status, message){
 			if(status == 'error' || status == 'done'){
 				if(load_module.isLoading) load_module.loaded();
+				if(status == 'error') dialogAlert(message, 'danger');
 			}else{
 				if(!load_module.isLoading) load_module.loading(this);
 			}
@@ -384,27 +378,22 @@
 			return res;
 		};
 
-		var dialogAlert = function(msg, title){
-			title = title || "";
-			msg = msg || "";
-			$('#messageAlertTitle').text(title);
-			$('#messageAlertBody').text(msg);
-			$("#messageAlertTrigger").trigger('click');
+		var dialogAlert = function(msg, style){
+			$("#alertMessage").append('<div class="alert alert-' + style + ' alert-dismissable"><a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a><p>' + msg + '</p></div>');
 		};
 
 		var putLogs = function(msg){
 			var o = JSON.parse(msg);
 			var msg = o.responseJSON.message;
 			if(/rate limit exceeded/.test(msg)){
-				dialogAlert("Please input access token to get higher rate limit.", "Information");
+				dialogAlert("Please input access token to get higher rate limit.", "danger");
 				// var el = document.createElement('a');
 				// el.href = "https://github.com/login/oauth/authorize?scope=user:email&client_id=5b86a1ee49848fd4ef27";
 				// el.click();
 				$('#tokenTaking').trigger('click');
 			}else{
-				$("#logRegion").append("<p>" + msg + "</p>");
+				dialogAlert(msg, "info");
 			}
-			// console.log(JSON.parse(msg));
 		};
 
 		var renderCells = function(repoUrl){
@@ -426,7 +415,7 @@
 				    success: function(results) {
 				    	var templateText = '';
 				    	if(!Array.isArray(results)){
-				    		if(results.message) dialogAlert(results.message, "ERROR"); 
+				    		if(results.message) dialogAlert(results.message, "danger"); 
 				    		else{
 				    			var btn = document.getElementById('urlDownload');
 				    			btn.setAttribute('git-url', results.download_url);
@@ -502,7 +491,7 @@
 			.catch(function(){
 				// invalid url
 				load_module.loaded();
-				dialogAlert("URL is invalid.", "ERROR");
+				dialogAlert("URL is invalid.", "danger");
 			});
 		};
 
@@ -554,35 +543,26 @@
 			window._ghpageAccessToken = token_param || token_cookie;
 			if(window._ghpageAccessToken){
 				GitZip.setAccessToken(window._ghpageAccessToken);
-				// handle download parameter
-				if(params['download']){
-	  				var url = decodeURIComponent(params['download']);
-	  				if(repoExp.test(url)){
-	  					$("#urlInput").val(url);
-	  					$("#urlDownload").trigger('click');
-	  				}else{
-	  					if(url[0] != "/") url = "/" + url;
-	  					if(relatedRepoExp.test(url)){
-	  						url = "https://github.com" + url;
-	  						$("#urlInput").val(url);
-	  						$("#urlDownload").trigger('click');
-	  					}
-	  				}
-	  			}
 			}else{
-				dialogAlert("We recommended to get the token first and then do your actions.", "Warning");
+				dialogAlert("We recommended to get the token first and then do your actions.", "warning");
 				$('#tokenTaking').trigger('click');
 			}
 
-			// detect is chrome 
-			// if(/Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)){
-			// 	var hasShowMessage = _getCookie("_gitzip_ext_0_2_0_has_show");
-			// 	if(!hasShowMessage){
-			// 		$("#extensionMessage").show();	
-			// 		_setCookie("_gitzip_ext_0_2_0_has_show", "yes", 365);
-			// 	}
-			// }
-			
+			// handle download parameter
+			if(params['download']){
+  				var url = decodeURIComponent(params['download']);
+  				if(repoExp.test(url)){
+  					$("#urlInput").val(url);
+  					$("#urlDownload").trigger('click');
+  				}else{
+  					if(url[0] != "/") url = "/" + url;
+  					if(relatedRepoExp.test(url)){
+  						url = "https://github.com" + url;
+  						$("#urlInput").val(url);
+  						$("#urlDownload").trigger('click');
+  					}
+  				}
+  			}
 		});
 
 	</script>

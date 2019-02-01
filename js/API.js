@@ -98,7 +98,7 @@ var _global = typeof window === 'object' && window.window === window
                             }
                             xhr.send();
                             if(xhr.status == 200) return xhr.response;
-                            return { status: xhr.status, statusText: xhr.statusText };
+                            return { status: xhr.status, statusText: xhr.statusText, response: xhr.response };
                         }
                         onmessage = function(e){
                             // e.data
@@ -121,19 +121,23 @@ var _global = typeof window === 'object' && window.window === window
                                 });
 
                                 if(res.status){
+                                    if (res.status == 401 || res.status == 403) {
+                                        results = JSON.parse(res.response);
+                                        break;
+                                    }
                                     if(pathTryQueue.length){
                                         branchTry += "/" + pathTryQueue.shift();
                                         pathTry = pathTryQueue.join('/');
                                         // case: 2.1/Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib, Examples/Evaluation/UWPImageRecognition/ImageRecognizerLib
-                                    }else toBreak = true;
+                                    }else break;
                                 }else{
                                     results.branch = branchTry;
                                     results.path = pathTry;
-                                    toBreak = true;
+                                    break;
                                 }
                             }
                             if(results.branch) postMessage(results);
-                            else postMessage(null);
+                            else postMessage(results.message);
                             close();
                         };
                     }.toString(),
@@ -155,7 +159,7 @@ var _global = typeof window === 'object' && window.window === window
                 checkWorker.onmessage = function(e){
                     // e.data
                     if(e.data && typeof e.data == "object") resolve(e.data);
-                    else reject(e.data);
+                    else reject("Github: " + e.data);
                 };
             });
         },
@@ -270,7 +274,7 @@ var _global = typeof window === 'object' && window.window === window
             var status = xmlResponse.status;
             var response = xmlResponse.response;
             var message = (response && response.message) ? response.message : xmlResponse.statusText;
-            progressCallback.call(this, 'error', "Error: " + message);
+            progressCallback.call(this, 'error', "Github: " + message);
         }
     };
 
@@ -528,9 +532,13 @@ var _global = typeof window === 'object' && window.window === window
                 }
             }
         })
-        .catch(function(){
-            progressCallback.call(callbackScope, 'error', 'Invalid URL: value is [' + pathToFolder.toString() + ']');
-            throw "INVALID URL";
+        .catch(function(msg){
+            if (msg){
+                progressCallback.call(callbackScope, 'error', msg);
+            } else {
+                progressCallback.call(callbackScope, 'error', 'Invalid URL: value is [' + pathToFolder.toString() + ']');
+                throw "INVALID URL";
+            }
         });
     }
 
