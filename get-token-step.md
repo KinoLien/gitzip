@@ -14,11 +14,13 @@ The browser would trigger download, and then save it.
 
 ### Step 4
 
-Open the file:  
+Open the file and copy the token.  
+  
 ![Image of Step4](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step4.png)
 
 ### Step 5
-
+Paste it on the webpage as the Github API Access Token and press enter.  
+  
 ![Image of Step5](https://raw.githubusercontent.com/KinoLien/gitzip/gh-pages/images/get-token-step5.png)
 
 ### Finally
