@@ -251,7 +251,12 @@ var _global = typeof window === 'object' && window.window === window
     // default type is "json"
     var _callAjax = function(url, params, type){
         return new Promise(function(resolve, reject){
-            var xmlhttp;
+            var xmlhttp, 
+                token = params["access_token"] || "";
+            
+            // remove it for do not add to the query parameter.
+            delete params["access_token"];
+
             // compatible with IE7+, Firefox, Chrome, Opera, Safari
             xmlhttp = new XMLHttpRequest();
             xmlhttp.onreadystatechange = function(){
@@ -265,6 +270,7 @@ var _global = typeof window === 'object' && window.window === window
             }
             xmlhttp.responseType = (typeof type !== "undefined") ? type : "json";
             xmlhttp.open("GET", url + _getRequestUri(params), true);
+            if ( token ) xmlhttp.setRequestHeader("Authorization", "token " + token);
             xmlhttp.send();
         });
     };
